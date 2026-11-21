@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AHK 配列スタジオ</title>
+<style>
+:root{
+  --bg:#0e1120; --panel:#161a2d; --panel2:#1d2238; --line:#2a3050; --text:#e6e8f2; --muted:#8b91b0;
+  --key:#232843; --remap:#3b82f6; --send:#10b981; --action:#f59e0b; --prefix:#a855f7; --held:#facc15; --hs:#ec4899;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:"Segoe UI","Hiragino Sans","Yu Gothic UI",Meiryo,sans-serif;font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+header{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:16px;margin:0 8px 0 0;white-space:nowrap}
+header h1 span{color:var(--prefix)}
+.btn{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+.btn:hover{border-color:var(--remap)}
+.btn.primary{background:var(--remap);border-color:var(--remap);color:#fff}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:var(--panel2);border:0;padding:6px 10px;cursor:pointer}
+.seg button.on{background:var(--prefix);color:#fff}
+#q{flex:1;min-width:160px;max-width:340px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.app{display:grid;grid-template-columns:260px 1fr 340px;height:calc(100% - 55px)}
+aside,#detail{background:var(--panel);overflow:auto}
+aside{border-right:1px solid var(--line);padding:10px 6px}
+#detail{border-left:1px solid var(--line);padding:14px}
+main{overflow:auto;padding:16px 20px}
+@media (max-width:1100px){.app{grid-template-columns:230px 1fr}#detail{grid-column:1/-1;border-left:0;border-top:1px solid var(--line)}.app{height:auto}}
+/* tree */
+.tsec{color:var(--muted);font-size:11px;letter-spacing:.08em;margin:12px 8px 4px}
+.node{display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;cursor:pointer;white-space:nowrap;overflow:hidden}
+.node:hover{background:var(--panel2)}
+.node.sel{background:#2b2f55;outline:1px solid var(--prefix)}
+.node .nm{overflow:hidden;text-overflow:ellipsis;flex:1}
+.node .cnt{font-size:11px;color:var(--muted);background:var(--bg);border-radius:10px;padding:0 7px}
+.children{margin-left:12px;border-left:1px dashed var(--line);padding-left:4px}
+.grp{font-size:11px;color:var(--muted);padding:4px 8px 2px}
+.tog{width:14px;color:var(--muted);font-size:10px}
+/* main */
+.crumb{color:var(--muted);font-size:12px;margin-bottom:4px}
+.crumb a{color:var(--muted);cursor:pointer;text-decoration:underline dotted}
+h2{margin:0 0 10px;font-size:20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin:6px 0 12px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:-2px}
+.kbd{position:relative;margin:4px 0 14px}
+.key{position:absolute;border-radius:6px;background:var(--key);border:1px solid #2f3556;box-shadow:0 2px 0 #0a0c18;display:flex;flex-direction:column;justify-content:center;align-items:center;cursor:pointer;overflow:hidden;transition:transform .08s}
+.key:hover{transform:translateY(-1px);border-color:#6b72a8}
+.key .cap{position:absolute;top:2px;left:5px;font-size:10px;color:var(--muted);white-space:nowrap}
+.key .out{font-weight:600;text-align:center;line-height:1.1;padding:0 3px;word-break:break-all;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-top:8px}
+.key .bd{position:absolute;bottom:1px;right:4px;font-size:9px;color:#cfd3ea}
+.key.empty .out{display:none}
+.key.empty{opacity:.55}
+.key.remap{background:linear-gradient(#25407a,#1e3360);border-color:var(--remap)}
+.key.send{background:linear-gradient(#11553f,#0e4433);border-color:var(--send)}
+.key.action{background:linear-gradient(#5e4310,#4a350d);border-color:var(--action)}
+.key.trigger{outline:2px dashed var(--prefix);outline-offset:-3px}
+.key.held{background:linear-gradient(#6a5a10,#4f430c);border-color:var(--held);opacity:1}
+.key.held .out{display:block;color:var(--held)}
+.key.selk{box-shadow:0 0 0 3px #fff}
+.key.hit{box-shadow:0 0 0 3px var(--hs)}
+.mini .key{border-radius:3px;box-shadow:none;cursor:inherit}
+.mini .key:hover{transform:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:3px 10px;font-size:12px;cursor:pointer}
+.chip b{color:#fff}
+.chip.remap{border-color:var(--remap)}.chip.send{border-color:var(--send)}.chip.action{border-color:var(--action)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:500;font-size:12px;position:sticky;top:0;background:var(--bg)}
+tr.row{cursor:pointer}
+tr.row:hover td{background:var(--panel)}
+.tag{display:inline-block;font-size:11px;border-radius:4px;padding:0 6px;color:#fff}
+.tag.remap{background:var(--remap)}.tag.send{background:var(--send)}.tag.action{background:var(--action)}.tag.hs{background:var(--hs)}
+.mono{font-family:Consolas,"Cascadia Mono",Menlo,monospace}
+.dim{color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+.card:hover{border-color:var(--prefix)}
+.card h3{margin:0 0 6px;font-size:14px;display:flex;justify-content:space-between}
+.ctxhead{margin:18px 0 8px;font-size:15px;display:flex;gap:8px;align-items:center}
+.ctxhead:first-child{margin-top:0}
+pre{background:#0a0d1a;border:1px solid var(--line);border-radius:6px;padding:8px 10px;overflow:auto;font-size:12px;margin:6px 0 10px;max-height:260px}
+.dk{display:inline-flex;align-items:center;justify-content:center;min-width:44px;height:44px;padding:0 10px;border-radius:8px;background:var(--key);border:1px solid #3a4170;font-size:18px;font-weight:700}
+.di{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin:8px 0}
+.di .hd{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}
+.link{color:#93c5fd;cursor:pointer}
+.notice{background:#2a2410;border:1px solid #6b5a12;color:#f5e1a0;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:12px}
+.welcome{max-width:640px;margin:40px auto;text-align:center;color:var(--muted)}
+.welcome .big{font-size:48px}
+#drop{position:fixed;inset:0;background:rgba(80,40,160,.35);border:4px dashed var(--prefix);display:none;align-items:center;justify-content:center;font-size:28px;z-index:9;pointer-events:none}
+#drop.on{display:flex}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;width:min(800px,92vw)}
+dialog textarea{width:100%;height:50vh;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;font-family:Consolas,monospace;font-size:12px}
+.stat{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.stat div{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12px;color:var(--muted)}
+.stat b{color:var(--text);font-size:16px;margin-right:4px}
+.simbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+.simbar .lbl{color:var(--muted);font-size:12px;margin-right:2px}
+.chip.on{background:var(--prefix);border-color:var(--prefix);color:#fff}
+.chip.auto{border-style:dashed;opacity:.8;cursor:default}
+.chip.heldc{background:var(--held);color:#222;border-color:var(--held);font-weight:600}
+.chip.heldc .dim{color:#554}
+.howto{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;line-height:1.7;margin-bottom:10px}
+.kbd-k{display:inline-block;min-width:22px;padding:0 6px;border-radius:5px;background:var(--key);border:1px solid #4a5285;border-bottom-width:3px;font-size:12px;text-align:center;line-height:20px;font-weight:600;color:#fff}
+.kbd-k.h{background:#5a4c0e;border-color:var(--held)}
+.simcols{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}
+@media (max-width:1300px){.simcols{grid-template-columns:1fr}}
+.alist .ar{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line);cursor:pointer}
+.alist .ar:hover{background:var(--panel)}
+.alist .ar .o{font-weight:600}
+.alist .ar .m{grid-column:2;color:var(--muted);font-size:12px}
+.log .lr{padding:7px 10px;border-radius:8px;background:var(--panel);border:1px solid var(--line);margin-bottom:6px;font-size:13px}
+.log .lr:first-child{border-color:var(--send);box-shadow:0 0 0 1px var(--send)}
+.log .lr .m{color:var(--muted);font-size:12px;margin-top:2px}
+.key.flash{box-shadow:0 0 0 3px #fff,0 0 18px #fff}
+.h3{font-size:14px;margin:14px 0 6px;color:#cfd3ea}
+.trigrow{display:flex;flex-wrap:wrap;gap:8px}
+.trigrow .chip{font-size:13px;padding:5px 12px}
+#edlg{width:min(720px,94vw);max-height:92vh}
+#edlg textarea{height:auto}
+.eg{display:grid;grid-template-columns:90px 1fr;gap:8px 12px;align-items:center}
+.eg>label{color:var(--muted);font-size:12px}
+.eg input:not([type=checkbox]):not([type=radio]),.eg select,.eg textarea,#eCode{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;width:100%}
+.eg textarea{resize:vertical;font-family:Consolas,monospace}
+#eCode{font-size:12px;margin-top:6px;resize:vertical}
+.radios{display:flex;gap:14px;flex-wrap:wrap}
+.radios label{cursor:pointer}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.chip.sc{font-family:Consolas,monospace;font-size:11px;padding:1px 7px;display:inline-block;margin:2px 0}
+.badge{background:#fff;color:var(--remap);border-radius:9px;padding:0 6px;font-size:11px;font-weight:700;margin-left:4px}
+#xdlg{width:min(900px,94vw)}
+.xf{border:1px solid var(--line);border-radius:8px;margin-top:10px;overflow:hidden}
+.xh{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--panel2);gap:8px;flex-wrap:wrap}
+.diff{font-size:12px;max-height:45vh;overflow:auto;background:#0a0d1a;padding:6px 0}
+.dl{white-space:pre;padding:0 10px}
+.dl .ln{display:inline-block;width:42px;color:#555c80;text-align:right;margin-right:10px}
+.dl.add{background:#0f3a26;color:#9ff0c4}.dl.del{background:#3d1418;color:#f4a3aa;text-decoration:line-through}
+.dl.sep{color:var(--muted);text-align:center}
+.edb{display:flex;gap:6px;margin-top:6px}
+.edb .btn{padding:3px 10px;font-size:12px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(30px);background:var(--send);color:#fff;padding:10px 18px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;z-index:20}
+#toast.on{opacity:1;transform:translateX(-50%)}
+
+/* ===== ahk-layout-studio 追加分 ===== */
+.app{height:calc(100% - 52px)}
+body[data-view=studio] .app{grid-template-columns:290px 1fr 330px}
+header .grow{flex:1}
+header .doc{font-size:13px;color:var(--muted);cursor:pointer;border-bottom:1px dotted var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.btn:disabled{opacity:.35;cursor:default}
+.badge{color:#fde68a;margin-left:2px}
+#tabs button{font-weight:600}
+#tabs button.on{background:var(--remap)}
+/* パレット */
+.pal-head input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.pal-hint{font-size:11px;color:var(--muted);margin:8px 4px;line-height:1.5}
+.pal-cat{margin:6px 0}
+.pal-cat summary{cursor:pointer;color:#cfd3ea;font-size:12px;padding:4px;user-select:none}
+.pal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:5px;padding:2px 2px 6px}
+.pal{background:var(--key);border:1px solid #3a4170;border-radius:7px;padding:5px 4px;text-align:center;cursor:grab;user-select:none;min-height:38px;display:flex;flex-direction:column;justify-content:center}
+.pal:hover{border-color:var(--send);background:#24304f}
+.pal b{font-size:13px;line-height:1.15;word-break:break-all}
+.pal small{font-size:9px;color:var(--muted);line-height:1.2;margin-top:2px}
+.pal.special{grid-column:1/-1;border-color:var(--prefix);background:#2a1f45}
+/* ステージ */
+.bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.bar .lbl{font-size:11px;color:var(--muted);width:46px;line-height:1.2}
+.chip.ghost{border-style:dashed;color:var(--muted)}
+.lockt{font-size:12px;padding:4px 10px;border:1px solid var(--line);border-radius:14px;cursor:pointer;user-select:none}
+.lockt.on{background:#4a2a10;border-color:var(--action)}
+.lchip{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:54px;padding:5px 10px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);cursor:pointer;font-weight:700;font-size:14px;line-height:1.1}
+.lchip small{font-size:10px;color:var(--muted);font-weight:400;margin-top:2px}
+.lchip.on{background:var(--held);color:#222;border-color:var(--held)}
+.lchip.on small{color:#554}
+.lchip.mod{font-size:12px;min-width:44px}
+.lchip.newl{border-style:dashed;border-color:var(--prefix);color:#d8b4fe;font-size:12px}
+.bar .sep{width:1px;height:30px;background:var(--line);margin:0 4px}
+.banner{background:#1c2340;border:1px solid #39437a;border-radius:8px;padding:7px 12px;font-size:12px;margin-bottom:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.state{font-size:17px;font-weight:700;margin:6px 0 8px}
+.under{display:flex;gap:14px;align-items:center;margin-top:2px}
+.trash{border:2px dashed #7f1d1d;color:#fca5a5;border-radius:10px;padding:10px 16px;font-size:13px;white-space:nowrap}
+.hint{font-size:11px;line-height:1.5}
+.loglist{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px;font-size:12px}
+.loglist .lbl{color:var(--muted);font-size:11px;margin-right:4px}
+.logc{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:3px 8px}
+.logc:first-of-type{border-color:var(--send)}
+.realk{margin-left:auto;color:var(--muted);font-size:11px;cursor:pointer}
+.key.lockedk{background-image:repeating-linear-gradient(135deg,transparent 0 6px,rgba(255,255,255,.04) 6px 12px)}
+.key.autok .out{opacity:.55;font-style:italic}
+.key[draggable=true]{cursor:grab}
+body.dragging [data-drop]{transition:none}
+body.dragging .key.empty{opacity:.8}
+[data-drop].over{outline:3px solid #fff!important;outline-offset:-2px;box-shadow:0 0 16px #fff8!important}
+.trash.over{background:#4c1010}
+.lchip.over{transform:scale(1.08)}
+/* 右欄 */
+.ins-empty{color:var(--muted);text-align:center;margin-top:30px;line-height:1.7}
+.ins-empty .big{font-size:40px}
+.stat2{display:flex;gap:8px;justify-content:center;margin-top:16px}
+.stat2 div{background:var(--panel2);border-radius:8px;padding:6px 10px;font-size:11px}
+.stat2 b{display:block;font-size:18px;color:var(--text)}
+.ins-head{font-size:15px;margin-bottom:10px;line-height:2}
+.ins-head .dk{min-width:40px;height:40px;font-size:17px;vertical-align:middle}
+.di.cur{border-color:#3b4a7a}
+.outbig{font-size:22px;font-weight:700;margin:6px 0 2px;word-break:break-all}
+.note{font-size:11px;color:#f5c26b;margin-top:6px;line-height:1.5}
+.form select,.form textarea,.form input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin-top:6px}
+.form textarea{font-family:Consolas,monospace;resize:vertical}
+.form .row,.row{display:flex;gap:8px;margin-top:8px;align-items:center}
+.codebox summary{cursor:pointer;font-size:12px;color:var(--muted);margin:6px 0}
+.di.lay{border-color:var(--prefix);font-size:13px}
+.di.lay .btn{margin-top:6px;padding:3px 10px;font-size:12px}
+.orow{padding:6px 8px;border-bottom:1px solid var(--line);font-size:12px;cursor:pointer;line-height:1.8}
+.orow:hover{background:var(--panel2)}
+.tag.lock{background:#475569}.tag.auto{background:#6b7280}.tag.own{background:var(--prefix)}
+.edb{display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap}
+.edb .btn{padding:3px 10px;font-size:12px}
+/* 書き出し */
+#xdlg{width:min(900px,94vw);max-height:92vh}
+.xrow{display:flex;gap:10px;align-items:center}
+.xrow input{flex:1;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.xf{border:1px solid var(--line);border-radius:8px;margin-top:10px;overflow:hidden}
+.xh{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--panel2);gap:8px}
+.diff{font-size:12px;max-height:50vh;overflow:auto;background:#0a0d1a;padding:6px 0}
+.dl{white-space:pre;padding:0 10px}
+.dl .ln{display:inline-block;width:42px;color:#555c80;text-align:right;margin-right:10px}
+.dl.add{background:#0f3a26;color:#9ff0c4}.dl.del{background:#3d1418;color:#f4a3aa;text-decoration:line-through}
+.dl.sep{color:var(--muted);text-align:center}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(30px);background:var(--send);color:#fff;padding:10px 18px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;z-index:20;max-width:80vw}
+#toast.on{opacity:1;transform:translateX(-50%)}
+#toast.warn{background:#b45309}
+.key.fallback{opacity:.45;filter:saturate(.4)}
+.key .out{word-break:normal;overflow-wrap:anywhere}
+
+</style>
+</head>
+<body data-view="studio">
+<header>
+  <h1>⌨ AHK <span>配列スタジオ</span></h1>
+  <span class="doc" id="docName" title="クリックでファイル名を変更"></span>
+  <button class="btn" id="bOpen" title=".ahk ファイルを開く（画面にドラッグ＆ドロップでもOK）">📂 開く</button>
+  <input type="file" id="file" accept=".ahk,.ah2,.txt" hidden>
+  <button class="btn" id="bNew">＋ 新規</button>
+  <button class="btn" id="bSample">サンプル</button>
+  <button class="btn" id="bUndo" title="元に戻す (Ctrl+Z)">↶</button>
+  <button class="btn" id="bRedo" title="やり直す (Ctrl+Y)">↷</button>
+  <div class="seg" id="tabs"><button data-v="studio">⌨ キーボード</button><button data-v="detail">🔬 くわしく</button></div>
+  <span class="grow"></span>
+  <input id="q" placeholder="🔍 キー・出力・コードを検索">
+  <div class="seg" id="lay"><button data-l="jis">JIS</button><button data-l="us">US</button></div>
+  <button class="btn" id="bExport">💾 書き出し</button>
+</header>
+<div class="app">
+  <aside id="tree"></aside>
+  <main id="main"></main>
+  <section id="detail"></section>
+</div>
+<div id="drop">ここに .ahk ファイルをドロップして開く</div>
+<dialog id="xdlg"></dialog>
+<script>
+/* ---- js/state.js ---- */
+"use strict";
+/* =========================================================
+   アプリ全体の状態
+   ========================================================= */
+const S = {
+  layout: 'jis',
+  view: 'studio',              // 'studio'（キーボード） | 'detail'（くわしく）
+  // くわしく画面
+  sel: 'all', selKey: null, query: '', collapsed: {},
+  // 解析結果（DOC から作った .ahk を解析したもの）
+  items: [], hotstrings: [], notes: [], ctxs: [], layers: new Map(), ctxDir: {},
+  // キーボード画面
+  sim: { held: new Set(), ctxOn: new Set(), log: [], used: false, real: true, flash: null },
+  appCtx: '',                  // いま使っているアプリの条件（'' = グローバル）。ためす・つくる共通
+  locked: false,               // 編集ロック（ためすだけ）
+  paletteQ: '',
+};
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function toast(msg, kind) {
+  let el = $('#toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg; el.className = 'on ' + (kind || '');
+  clearTimeout(el._t); el._t = setTimeout(() => el.className = '', 2800);
+}
+
+</script>
+<script>
+/* ---- js/keys.js ---- */
+"use strict";
+/* =========================================================
+   キー定義
+   ========================================================= */
+const hex3 = n => n.toString(16).padStart(3,'0');
+const SC = {'001':'esc','00e':'backspace','00f':'tab','01c':'enter','01d':'lctrl','02a':'lshift','036':'rshift','038':'lalt','039':'space','03a':'capslock','029':'`','02b':'\\','07b':'muhenkan','079':'henkan','070':'kana','073':'jp_ro','07d':'jp_yen','11d':'rctrl','138':'ralt','15b':'lwin','15c':'rwin','15d':'appskey','147':'home','14f':'end','149':'pgup','151':'pgdn','152':'insert','153':'delete','148':'up','150':'down','14b':'left','14d':'right','137':'printscreen','046':'scrolllock','045':'pause','057':'f11','058':'f12'};
+[['1234567890-=',2],['qwertyuiop[]',0x10],["asdfghjkl;'",0x1e],['zxcvbnm,./',0x2c]].forEach(([s,b])=>[...s].forEach((c,i)=>SC[hex3(b+i)]=c));
+for(let i=0;i<10;i++) SC[hex3(0x3b+i)]='f'+(i+1);
+
+const VK = {'1d':'muhenkan','1c':'henkan','f2':'kana','15':'kana','f3':'`','f4':'`','19':'`','14':'capslock','f0':'capslock','20':'space','0d':'enter','08':'backspace','09':'tab','1b':'esc','a0':'lshift','a1':'rshift','a2':'lctrl','a3':'rctrl','a4':'lalt','a5':'ralt','5b':'lwin','5c':'rwin','5d':'appskey','bc':',','bd':'-','be':'.','bf':'/','25':'left','26':'up','27':'right','28':'down','2d':'insert','2e':'delete','24':'home','23':'end','21':'pgup','22':'pgdn','2c':'printscreen','91':'scrolllock','13':'pause'};
+for(let c=0x41;c<=0x5a;c++) VK[c.toString(16)] = String.fromCharCode(c+32);
+for(let c=0x30;c<=0x39;c++) VK[c.toString(16)] = String.fromCharCode(c);
+for(let i=0;i<12;i++) VK[(0x70+i).toString(16)] = 'f'+(i+1);
+const VK_US  = {'ba':';','bb':'=','c0':'`','db':'[','dc':'\\','dd':']','de':"'"};
+const VK_JIS = {'ba':"'",'bb':';','c0':'[','db':']','dc':'jp_yen','dd':'\\','de':'=','e2':'jp_ro'};
+const JIS_CHAR = {'@':'[','[':']',']':'\\',':':"'",'^':'=','\\':'jp_yen'};
+const ALIAS = {escape:['esc'],bs:['backspace'],back:['backspace'],return:['enter'],del:['delete'],ins:['insert'],pageup:['pgup'],pagedown:['pgdn'],
+  control:['lctrl','rctrl'],ctrl:['lctrl','rctrl'],shift:['lshift','rshift'],alt:['lalt','ralt'],lcontrol:['lctrl'],rcontrol:['rctrl'],apps:['appskey'],prtsc:['printscreen']};
+
+const CAP = {esc:'Esc',backspace:'BS',tab:'Tab',capslock:'CapsLock',enter:'Enter',lshift:'Shift',rshift:'Shift',lctrl:'Ctrl',rctrl:'Ctrl',lwin:'Win',rwin:'Win',lalt:'Alt',ralt:'Alt',appskey:'App',space:'Space',printscreen:'PrtSc',scrolllock:'ScrLk',pause:'Pause',insert:'Ins',home:'Home',pgup:'PgUp',delete:'Del',end:'End',pgdn:'PgDn',up:'↑',down:'↓',left:'←',right:'→',muhenkan:'無変換',henkan:'変換',kana:'かな',jp_yen:'¥',jp_ro:'ろ'};
+const CAP_JIS = {'`':'半/全','=':'^','[':'@',']':'[',"'":':','\\':']'};
+const SEND_LABEL = {left:'←',right:'→',up:'↑',down:'↓',enter:'⏎',return:'⏎',backspace:'⌫',bs:'⌫',delete:'Del',del:'Del',esc:'Esc',escape:'Esc',tab:'Tab',space:'Space',home:'Home',end:'End',pgup:'PgUp',pgdn:'PgDn',insert:'Ins',ins:'Ins',appskey:'App',lwin:'Win',rwin:'Win',
+  vk1d:'無変換',vk1c:'変換',vkf2:'かな',vkf3:'半/全',vkf4:'半/全',sc07b:'無変換',sc079:'変換',ime:'IME'};
+
+function buildLayout(t){
+  const K=[]; const add=(id,x,y,w=1,h=1)=>K.push({id,x,y,w,h});
+  const row=(y,list,x=0)=>{for(const e of list){const [id,w=1]=Array.isArray(e)?e:[e]; if(id!=='_') add(id,x,y,w); x+=w;}};
+  const D=[...'1234567890'], Q=[...'qwertyuiop'], A=[...'asdfghjkl'], Z=[...'zxcvbnm'];
+  row(0,['esc',['_',1],'f1','f2','f3','f4',['_',.5],'f5','f6','f7','f8',['_',.5],'f9','f10','f11','f12']);
+  const Y=1.25;
+  if(t==='us'){
+    row(Y,['`',...D,'-','=',['backspace',2]]);
+    row(Y+1,[['tab',1.5],...Q,'[',']',['\\',1.5]]);
+    row(Y+2,[['capslock',1.75],...A,';',"'",['enter',2.25]]);
+    row(Y+3,[['lshift',2.25],...Z,',','.','/',['rshift',2.75]]);
+    row(Y+4,[['lctrl',1.25],['lwin',1.25],['lalt',1.25],['space',6.25],['ralt',1.25],['rwin',1.25],['appskey',1.25],['rctrl',1.25]]);
+  } else {
+    row(Y,['`',...D,'-','=','jp_yen','backspace']);
+    row(Y+1,[['tab',1.5],...Q,'[',']']); add('enter',13.75,Y+1,1.25,2);
+    row(Y+2,[['capslock',1.75],...A,';',"'",'\\']);
+    row(Y+3,[['lshift',2.25],...Z,',','.','/','jp_ro',['rshift',1.75]]);
+    row(Y+4,[['lctrl',1.5],['lwin',1.25],['lalt',1.25],['muhenkan',1.25],['space',3.25],['henkan',1.25],['kana',1.25],['ralt',1.25],['appskey',1.25],['rctrl',1.5]]);
+  }
+  const X=15.5;
+  row(0,['printscreen','scrolllock','pause'],X);
+  row(Y,['insert','home','pgup'],X);
+  row(Y+1,['delete','end','pgdn'],X);
+  add('up',X+1,Y+3);
+  row(Y+4,['left','down','right'],X);
+  return K;
+}
+const KB_W = 18.5, KB_H = 6.25;
+let LAYOUT = buildLayout('jis'), LAYOUT_IDS = new Set(LAYOUT.map(k=>k.id));
+
+function resolveKey(raw){
+  if(!raw) return [];
+  const k = raw.toLowerCase();
+  if(k.length===1){
+    if(S.layout==='jis' && JIS_CHAR[k]) return [JIS_CHAR[k]];
+    return LAYOUT_IDS.has(k) ? [k] : [];
+  }
+  if(ALIAS[k]) return ALIAS[k];
+  if(CAP[k] || /^f([1-9]|1[0-2])$/.test(k)) return [k];
+  let m = k.match(/^vk([0-9a-f]{2})/);
+  if(m){ const id = (S.layout==='jis'?VK_JIS:VK_US)[m[1]] || VK[m[1]]; return id?[id]:[]; }
+  m = k.match(/^sc([0-9a-f]{3})$/);
+  if(m){ const id=SC[m[1]]; return id?[id]:[]; }
+  return [];
+}
+function capLabel(id){
+  if(S.layout==='jis' && CAP_JIS[id]) return CAP_JIS[id];
+  if(CAP[id]) return CAP[id];
+  return id.length===1 ? id.toUpperCase() : id.toUpperCase();
+}
+function keyName(raw){
+  const ids = resolveKey(raw);
+  if(ids.length===1) return capLabel(ids[0]);
+  return raw.length===1 ? raw.toUpperCase() : raw;
+}
+
+const AHK_NAMED = {esc:'Esc',backspace:'Backspace',tab:'Tab',capslock:'CapsLock',enter:'Enter',lshift:'LShift',rshift:'RShift',lctrl:'LCtrl',rctrl:'RCtrl',lalt:'LAlt',ralt:'RAlt',
+  lwin:'LWin',rwin:'RWin',appskey:'AppsKey',space:'Space',printscreen:'PrintScreen',scrolllock:'ScrollLock',pause:'Pause',insert:'Insert',home:'Home',pgup:'PgUp',delete:'Delete',
+  end:'End',pgdn:'PgDn',up:'Up',down:'Down',left:'Left',right:'Right',muhenkan:'vk1D',henkan:'vk1C',kana:'sc070',jp_yen:'sc07D',jp_ro:'sc073'};
+const AHK_PUNCT_JIS = {'`':'sc029','=':'sc00D','[':'sc01A',']':'sc01B',';':'sc027',"'":'sc028','\\':'sc02B'};
+const AHK_PUNCT_US  = {'`':'sc029'};
+function idToAhk(id){
+  if(AHK_NAMED[id]) return AHK_NAMED[id];
+  if(/^f\d+$/.test(id)) return id.toUpperCase();
+  const p = (S.layout==='jis'?AHK_PUNCT_JIS:AHK_PUNCT_US)[id];
+  return p || id;
+}
+
+</script>
+<script>
+/* ---- js/parser.js ---- */
+"use strict";
+/* =========================================================
+   パーサー
+   ========================================================= */
+const MOD_CHAR = {'^':'Ctrl','!':'Alt','+':'Shift','#':'Win'};
+const MOD_ORDER = ['Ctrl','Alt','Shift','Win'];
+const modBase = m => m.replace(/^[LR]/,'');
+const sortMods = mods => mods.sort((a,b)=>MOD_ORDER.indexOf(modBase(a))-MOD_ORDER.indexOf(modBase(b)) || a.localeCompare(b));
+const isKeyToken = k => !!k && ((k.length===1 && !/\s/.test(k)) || /^[A-Za-z0-9_]+$/.test(k));
+const unesc = k => (k && /^`.$/.test(k)) ? k[1] : k;
+const stripComment = s => s.replace(/(^|\s+);.*$/,'');
+
+function parseSpec(spec){
+  let s = spec.trim(), up=false;
+  if(/\s+up$/i.test(s)){ up=true; s=s.replace(/\s+up$/i,'').trim(); }
+  const flags = {tilde:false,star:false,dollar:false};
+  if(/\s&\s/.test(s)){
+    let [a,b] = s.split(/\s+&\s+/);
+    if(a.startsWith('~')){flags.tilde=true;a=a.slice(1);}
+    if(b && b.startsWith('~')){flags.tilde=true;b=b.slice(1);}
+    a=unesc(a); b=unesc(b);
+    if(!isKeyToken(a)||!isKeyToken(b)) return null;
+    return {mods:[],prefixRaw:a,keyRaw:b,up,flags};
+  }
+  const mods=[]; let side='', i=0;
+  while(i<s.length-1 && '#!^+<>*~$'.includes(s[i])){
+    const c=s[i];
+    if(c==='<') side='L'; else if(c==='>') side='R';
+    else if(c==='*') flags.star=true; else if(c==='~') flags.tilde=true; else if(c==='$') flags.dollar=true;
+    else { mods.push(side+MOD_CHAR[c]); side=''; }
+    i++;
+  }
+  const key = unesc(s.slice(i));
+  if(!isKeyToken(key)) return null;
+  return {mods:sortMods(mods),prefixRaw:null,keyRaw:key,up,flags};
+}
+
+function isKeyName(n){
+  if(n.length===1) return true;
+  if(resolveKey(n).length) return true;
+  return /^(numpad\w+|wheel(up|down|left|right)|[lrm]button|xbutton[12]|f(1[3-9]|2[0-4])|browser_\w+|volume_\w+|media_\w+|launch_\w+|sleep|ctrlbreak|help|numlock|(vk|sc)[0-9a-f]+)$/i.test(n);
+}
+
+function humanizeSend(s){ return sendTokens(s).map(x=>x.v).join(' '); }
+function sendTokens(s){
+  const out=[]; let mods=[], text='', i=0;
+  const flush=()=>{ if(text){ out.push({t:'text',v:text}); text=''; } };
+  const push=lab=>{ flush(); out.push({t:'key',v:mods.length? mods.join('+')+'+'+lab : lab}); mods=[]; };
+  let raw=false;
+  while(i<s.length){
+    const c=s[i];
+    if(!raw && '^!+#'.includes(c) && i+1<s.length){ flush(); mods.push(MOD_CHAR[c]); i++; continue; }
+    if(!raw && c==='{'){
+      let j, name;
+      if(s[i+1]==='}' && s[i+2]==='}'){ name='}'; j=i+2; }
+      else { j=s.indexOf('}',i+1); if(j<0) j=s.length; name=s.slice(i+1,j); }
+      i=j+1;
+      const [k,extra] = name.trim().split(/\s+/);
+      const kl = (k||'').toLowerCase();
+      if(kl==='blind') continue;
+      if(kl==='raw'||kl==='text'){ raw=true; continue; }
+      const vkm = kl.match(/^(vk[0-9a-f]{2})/);
+      let lab = SEND_LABEL[kl] || (vkm && SEND_LABEL[vkm[1]]) || (k.length===1 ? (mods.length?k.toUpperCase():k) : k);
+      if(extra){ if(/^\d+$/.test(extra)) lab+='×'+extra; else if(/^down$/i.test(extra)) lab+='↓'; else if(/^up$/i.test(extra)) lab+='↑'; }
+      if(k.length===1 && !mods.length && !extra){ text+=k; continue; }
+      push(lab); continue;
+    }
+    if(mods.length){ push(c.toUpperCase()); i++; continue; }
+    text+=c; i++;
+  }
+  flush();
+  return out;
+}
+
+function summarize(lines){
+  const code = lines.map(l=>stripComment(l).trim()).filter(Boolean);
+  const nLines = code.filter(l=>!/^[{}]$/.test(l) && !/^return$/i.test(l)).length;
+  let first=null; const tokens=[];
+  for(const l of code){
+    const m = l.match(/\b(Send(?:Input|Play|Event|Text|Raw)?)\b\s*(?:,|\(|\s)\s*(.*)$/i);
+    if(m && !/^\s*(Mode|Level)/i.test(m[2])){
+      let arg=m[2].trim();
+      if(arg.endsWith(')') && /\(\s*$/.test(l.slice(0, l.indexOf(m[2])))) arg=arg.slice(0,-1).trim();
+      const q = arg.match(/^"((?:[^"]|"")*)"$/) || arg.match(/^'([^']*)'$/);
+      let tk;
+      if(q) arg=q[1].replace(/""/g,'"').replace(/`(.)/g,'$1');
+      const chr = !q && arg.match(/^Chr\((\d+)\)$/i);
+      if(chr) arg = String.fromCharCode(+chr[1]);
+      if(/^(SendText|SendRaw)$/i.test(m[1]) || chr) tk = [{t:'text',v:arg}];
+      else if(/^%\s/.test(arg) || (!q && /^[A-Za-z_]\w*\s*[.(]/.test(arg) && /^%|\(|\./.test(arg) && S._v2)) tk = [{t:'expr',v:'⟨式⟩'}];
+      else tk = sendTokens(arg);
+      if(first===null) first = tk.map(x=>x.v).join(' ');
+      tokens.push(...tk);
+    }
+  }
+  if(first!==null){
+    const nSend = code.filter(x=>/\bSend/i.test(x)).length;
+    return {kind:'send', out:(first||'Send')+(nSend>1?' …':''), tokens, nLines, extraCode: nLines>nSend};
+  }
+  first = code.find(l=>!/^[{}]$/.test(l) && !/^return$/i.test(l)) || '';
+  let m;
+  const r = summarizeAct(first); r.nLines=nLines; return r;
+}
+function summarizeAct(first){
+  let m;
+  if((m=first.match(/^Run\b[,\s(]*["']?([^"',)]+)/i))) return {kind:'action',out:'▶ '+m[1].split(/[\\/]/).pop()};
+  if((m=first.match(/^(Reload|ExitApp|Suspend|Pause)\b/i))) return {kind:'action',out:m[1]};
+  if((m=first.match(/^MsgBox\b/i))) return {kind:'action',out:'💬 MsgBox'};
+  if((m=first.match(/^(\w+)\s*\(/))) return {kind:'action',out:'ƒ '+m[1]+'()'};
+  if((m=first.match(/^(\w+)\s*:?=\s*(.*)/))) return {kind:'action',out:m[1]+' := '+m[2]};
+  return {kind:'action', out: first ? first.slice(0,24) : '(空)'};
+}
+
+function classifyRhs(rhs){
+  const m = rhs.match(/^([#!^+<>]*)(\S+)$/);
+  if(m && isKeyName(m[2]) && !/^(return|reload|exitapp|suspend|send\w*)$/i.test(m[2])){
+    const mods = [...m[1].replace(/[<>]/g,'')].map(c=>MOD_CHAR[c]);
+    const lab = m[2].length===1 ? m[2] : (SEND_LABEL[m[2].toLowerCase()] || keyName(m[2]));
+    const out=(mods.length?mods.join('+')+'+':'')+lab;
+    return {kind:'remap', out, target:m[2], tokens:[{t:'key',v:out}]};
+  }
+  return summarize([rhs]);
+}
+
+function ctxLabel(ctx){
+  if(!ctx) return 'グローバル';
+  let m;
+  if((m=ctx.match(/GetKeyState\(\s*"?([\w]+)"?/i))) return keyName(m[1])+' 押下中';
+  if((m=ctx.match(/ahk_exe\s+([\w.\-]+)/i))) return (/Not/i.test(ctx)?'≠ ':'')+m[1];
+  if((m=ctx.match(/ahk_class\s+([\w.\-]+)/i))) return (/Not/i.test(ctx)?'≠ ':'')+m[1];
+  return ctx.length>28 ? ctx.slice(0,28)+'…' : ctx;
+}
+
+function parseAHK(text, file){
+  const lines = text.replace(/^﻿/,'').split(/\r?\n/);
+  const items=[], hs=[], notes=[];
+  let ctx=null, inCmt=false, pending=[], body=null;
+  const isV2 = /#Requires\s+AutoHotkey\s+v?2/i.test(text) || /^\s*#HotIf/im.test(text) ||
+    (/\b(Send\w*|Run|MsgBox)\s*\(?\s*"/i.test(text) && !/\b(Send\w*|Run|MsgBox)\s*,/i.test(text) && !/^\s*#If/im.test(text));
+  S._v2 = isV2;
+  const finish = (endIdx)=>{
+    if(!pending.length) return;
+    const sum = summarize(body?body.lines:[]);
+    for(const it of pending){
+      it.code = lines.slice(it.line-1, endIdx+1).join('\n');
+      it.endLine = endIdx+1;
+      if(it.isHs){ it.text = sum.kind==='send'?sum.out:sum.out; }
+      else { it.kind = sum.kind; it.out = sum.out; it.tokens = sum.tokens; it.nLines = sum.nLines; it.extraCode = sum.extraCode; }
+    }
+    pending=[]; body=null;
+  };
+  const matchHotkey = t => {
+    const m = t.match(/^(\S+?(?:\s+&\s+\S+?)?(?:\s+up)?)::(.*)$/i);
+    if(!m) return null;
+    if(/"/.test(m[1])) return null;
+    const p = parseSpec(m[1]); if(!p) return null;
+    // 右辺の先頭の ; はキー（例: m & g::;）。空白に続く ; だけをコメントとみなす
+    return {spec:m[1], p, rhs: m[2].replace(/\s+;.*$/,'').trim()};
+  };
+  const matchHs = t => t.match(/^:([^:\s]*):(.+?)::(.*)$/);
+  const isComment = t => t.startsWith(';') && !/^;(::|\s+&\s|\s+up::)/i.test(t);
+
+  for(let i=0;i<lines.length;i++){
+    const raw=lines[i], t=raw.trim();
+    if(inCmt){ if(t.includes('*/')) inCmt=false; continue; }
+    if(t.startsWith('/*')){ if(!t.includes('*/')) inCmt=true; continue; }
+
+    if(body && body.mode==='brace'){
+      body.lines.push(raw);
+      const c = stripComment(raw).replace(/"(?:[^"]|"")*"|'[^']*'/g,'');
+      body.depth += (c.match(/\{/g)||[]).length - (c.match(/\}/g)||[]).length;
+      if(body.depth<=0) finish(i);
+      continue;
+    }
+    if(t==='' || isComment(t)) { if(body) body.lines.push(raw); continue; }
+
+    const dir = t.match(/^#(HotIf|If)(WinActive|WinNotActive|WinExist|WinNotExist)?(?=[\s,]|$)\s*,?\s*(.*)$/i);
+    const hsm = !dir && matchHs(t);
+    const hk = !dir && !hsm && matchHotkey(t);
+    const isLabel = /^[\w]+:$/.test(t) || /^[\w]+\(.*\)\s*\{?\s*$/.test(t) && !/^(if|while|loop|for|switch|return)\b/i.test(t);
+
+    if(body && body.mode==='return'){
+      if(dir || hsm || hk || isLabel){ finish(i-1); }
+      else if(/^return\b/i.test(t)){ body.lines.push(raw); finish(i); continue; }
+      else { body.lines.push(raw); continue; }
+    }
+
+    if(pending.length && !body && !hk && !hsm){
+      if(dir){ finish(i-1); }
+      else if(t.startsWith('{')){
+        body={mode:'brace',lines:[raw],depth:0};
+        const c=stripComment(raw); body.depth=(c.match(/\{/g)||[]).length-(c.match(/\}/g)||[]).length;
+        if(body.depth<=0) finish(i);
+        continue;
+      } else { body={mode:'return',lines:[raw]}; if(/^return\b/i.test(t)) finish(i); continue; }
+    }
+
+    if(dir){
+      const kind = dir[2] ? dir[2] : '';
+      const rest = stripComment(dir[3]||'').trim();
+      ctx = rest ? (kind ? kind+' '+rest : rest) : null;
+      if(ctx && !S.ctxDir[ctx]) S.ctxDir[ctx] = stripComment(t).trim();
+      continue;
+    }
+    if(/^#Include/i.test(t)){ notes.push(`${file}:${i+1} ${t} — 参照先ファイルも一緒に読み込んでください`); continue; }
+    if(/^Hotkey\b[\s,(]/i.test(t)){ notes.push(`${file}:${i+1} 動的な Hotkey 命令は解析対象外: ${t}`); continue; }
+
+    if(hsm){
+      const it = {isHs:true,file,line:i+1,ctx,opts:hsm[1],abbr:hsm[2],text:stripComment(hsm[3]).trim(),code:raw};
+      hs.push(it);
+      if(!it.text){ pending.push(it); }
+      continue;
+    }
+    if(hk){
+      const p=hk.p;
+      const it = {file,line:i+1,endLine:i+1,ctx,spec:hk.spec,...p,code:raw};
+      items.push(it);
+      if(hk.rhs===''){ pending.push(it); continue; }
+      if(/^\{\s*$/.test(hk.rhs) || (hk.rhs.startsWith('{') && !/^\{[^{}]+\}$/.test(hk.rhs) && !/\}\s*$/.test(hk.rhs))){
+        pending.push(it);
+        body={mode:'brace',lines:[hk.rhs],depth:1};
+        continue;
+      }
+      const c = classifyRhs(hk.rhs);
+      if(/^\{.*\}$/.test(hk.rhs) && hk.rhs.length>2 && c.kind!=='remap'){ const s2=summarize([hk.rhs.slice(1,-1)]); Object.assign(c,s2); }
+      it.kind=c.kind; it.out=c.out; it.tokens=c.tokens;
+      for(const pd of pending){ pd.kind=c.kind; pd.out=c.out; pd.tokens=c.tokens; pd.code=lines.slice(pd.line-1,i+1).join('\n'); }
+      pending=[];
+      continue;
+    }
+  }
+  finish(lines.length-1);
+  return {items,hs,notes,v2:isV2};
+}
+
+
+</script>
+<script>
+/* ---- js/meaning.js ---- */
+"use strict";
+/* =========================================================
+   意味（使われ方）
+   ========================================================= */
+const MEAN = {'←':'カーソル左','→':'カーソル右','↑':'カーソル上','↓':'カーソル下','Home':'行頭へ','End':'行末へ','PgUp':'前のページ','PgDn':'次のページ',
+ '⌫':'左の1文字を削除','BS':'左の1文字を削除','Del':'右の1文字を削除','⏎':'改行・決定','Enter':'改行・決定','Esc':'キャンセル・閉じる','Tab':'タブ／次の項目','Space':'スペース',
+ '半/全':'IME オン/オフ切替','変換':'IME オン','無変換':'IME オフ','かな':'かな入力','App':'右クリックメニュー','Ins':'挿入/上書き切替',
+ 'Ctrl+C':'コピー','Ctrl+X':'切り取り','Ctrl+V':'貼り付け','Ctrl+Z':'元に戻す','Ctrl+Y':'やり直し','Ctrl+S':'保存','Ctrl+A':'すべて選択','Ctrl+F':'検索','Ctrl+H':'置換',
+ 'Ctrl+P':'印刷','Ctrl+N':'新規','Ctrl+O':'開く','Ctrl+W':'タブ/ウィンドウを閉じる','Ctrl+T':'新しいタブ','Ctrl+Shift+T':'閉じたタブを復元','Ctrl+Tab':'次のタブ',
+ 'Ctrl+Shift+Tab':'前のタブ','Ctrl+PgDn':'次のタブ','Ctrl+PgUp':'前のタブ','Ctrl+/':'コメント切替','Ctrl+←':'単語単位で左へ','Ctrl+→':'単語単位で右へ',
+ 'Ctrl+Home':'文書の先頭へ','Ctrl+End':'文書の末尾へ','Ctrl+⌫':'単語を削除','Ctrl+Shift+Esc':'タスクマネージャー','Ctrl+L':'アドレスバーへ','Ctrl+R':'再読み込み',
+ 'Alt+F4':'ウィンドウを閉じる','Alt+Tab':'ウィンドウ切替','Alt+←':'戻る','Alt+→':'進む','Win+D':'デスクトップ表示','Win+E':'エクスプローラー','Win+L':'PCをロック',
+ 'Win+V':'クリップボード履歴','Win+Shift+S':'スクリーンショット','Shift+⏎':'改行（送信しない）','Shift+Tab':'前の項目','F2':'名前の変更・編集','F5':'更新',
+ 'Shift+←':'左へ選択','Shift+→':'右へ選択','Shift+↑':'上へ選択','Shift+↓':'下へ選択','Shift+Home':'行頭まで選択','Shift+End':'行末まで選択'};
+function tokenMeaning(tk){
+  if(tk.t==='text') return /[「」]/.test(tk.v) ? `“${tk.v}” を入力` : `「${tk.v}」を入力`;
+  if(tk.t==='expr') return '変数の内容を送信';
+  const m = tk.v.match(/^(.*?)(×(\d+))?$/); const base=m[1], n=m[3];
+  const mean = MEAN[base] || (/[↓↑]$/.test(base) ? base.replace(/↓$/,' を押し下げ').replace(/↑$/,' を離す') : base+' キー');
+  return mean + (n?` ×${n}回`:'');
+}
+function meaning(it){
+  if(it.kind==='remap') return `${it.out} キーとして動く`+(MEAN[it.out]?`（${MEAN[it.out]}）`:'');
+  if(it.kind==='send'){
+    const parts=[]; for(const tk of it.tokens||[]){ const s=tokenMeaning(tk); if(parts[parts.length-1]!==s) parts.push(s); }
+    let r = parts.slice(0,4).join(' → ') + (parts.length>4?' …':'');
+    if(it.extraCode) r += '（＋他の処理）';
+    return r || 'キー送信';
+  }
+  const o=it.out||''; let m;
+  if((m=o.match(/^▶ (.*)/))) return `${m[1]} を起動`;
+  if(/^Reload/i.test(o)) return 'スクリプトを再読み込み';
+  if(/^ExitApp/i.test(o)) return 'スクリプトを終了';
+  if(/^Suspend/i.test(o)) return 'ホットキーを一時停止/再開';
+  if(/^Pause/i.test(o)) return 'スクリプトを一時停止';
+  if(/MsgBox/.test(o)) return 'メッセージを表示';
+  if((m=o.match(/^ƒ (.*)/))) return `関数 ${m[1]} を実行`;
+  return 'スクリプトを実行' + (it.nLines>1?`（${it.nLines}行）`:'');
+}
+const kk = (t,held) => `<span class="kbd-k ${held?'h':''}">${esc(t)}</span>`;
+function comboHTML(it){
+  const ctx = it.ctx ? `<span class="dim">${esc(ctxLabel(it.ctx))} のとき</span> ` : '';
+  const k = kk(keyName(it.keyRaw));
+  let s;
+  if(it.prefixRaw) s = `${kk(keyName(it.prefixRaw),1)} を押しながら ${k}`;
+  else if(it.mods.length) s = it.mods.map(m=>kk(m,1)).join(' + ')+' + '+k;
+  else s = k;
+  return ctx + s + (it.up?' を<b>離したとき</b>':' を押す');
+}
+
+
+</script>
+<script>
+/* ---- js/model.js ---- */
+"use strict";
+/* =========================================================
+   配列データ（正本）と .ahk の組み立て
+   ---------------------------------------------------------
+   DOC.hand     … 手書き部分（元ファイルの行）。管理区画の場所に REGION_MARK が1行入る
+   DOC.bindings … アプリが管理する割り当て（管理区画はここから毎回作り直す）
+   ========================================================= */
+const REGION_BEGIN = '; ==== BEGIN 配列アプリ管理区画 (ahk-layout-studio) : この区画はアプリが書き換えます。手で編集しないでください ====';
+const REGION_END = '; ==== END 配列アプリ管理区画 ====';
+const REGION_MARK = '\u0001REGION';
+const AUTO_TAG = '(自動)';
+
+let DOC = null;
+const UNDO = [], REDO = [];
+
+function newDoc(name) {
+  return { name: name || '新しい配列.ahk', orig: '', eol: '\r\n', nextId: 1, ctxs: [], layerKeys: [],
+    hand: ['#Requires AutoHotkey v2.0', '', REGION_MARK, ''], bindings: [] };
+}
+
+/* ---------- 読み込み ---------- */
+function docFromText(name, text) {
+  text = text.replace(/^﻿/, '');
+  const lines = text.split(/\r?\n/);
+  const doc = { name, orig: text, eol: /\r\n/.test(text) ? '\r\n' : '\n', nextId: 1, ctxs: [], layerKeys: [], hand: lines, bindings: [] };
+  const b = lines.findIndex(l => l.startsWith('; ==== BEGIN 配列アプリ管理区画'));
+  const e = lines.findIndex((l, i) => i > b && l.startsWith('; ==== END 配列アプリ管理区画'));
+  if (b >= 0 && e > b) {
+    const region = lines.slice(b + 1, e);
+    doc.hand = [...lines.slice(0, b), REGION_MARK, ...lines.slice(e + 1)];
+    const r = parseAHK(region.join('\n'), name);
+    for (const it of r.items) {
+      const bd = itemToBinding(it);
+      if (!bd || (bd.comment || '').includes(AUTO_TAG)) continue;
+      bd.id = doc.nextId++; doc.bindings.push(bd);
+    }
+  }
+  return doc;
+}
+const isV2Text = t => /#Requires\s+AutoHotkey\s+v?2/i.test(t) || /^\s*#HotIf/im.test(t) ||
+  (/\b(Send\w*|Run|MsgBox)\s*\(?\s*"/i.test(t) && !/\b(Send\w*|Run|MsgBox)\s*,/i.test(t) && !/^\s*#If/im.test(t));
+
+/* ---------- 解析結果 → 割り当て ---------- */
+const unq = s => s.slice(1, -1).replace(/`(.)/g, (m, c) => ({ n: '\n', t: '\t' }[c] || c));
+const STR = '"(?:[^"`]|`.)*"';
+function parseStmt(st) {
+  st = st.trim(); let m;
+  if ((m = st.match(new RegExp(`^(Send|SendInput|SendText|Run)\\s*(?:\\(\\s*(${STR})\\s*\\)|\\s+(${STR}))$`, 'i'))))
+    return { type: /text/i.test(m[1]) ? 'text' : /run/i.test(m[1]) ? 'run' : 'send', value: unq(m[2] || m[3]) };
+  if ((m = st.match(/^SendText\s*\(?\s*Chr\((\d+)\)\s*\)?$/i))) return { type: 'text', value: String.fromCharCode(+m[1]) };
+  return null;
+}
+function dedent(lines) {
+  const ind = Math.min(...lines.filter(l => l.trim()).map(l => l.match(/^\s*/)[0].length), 99);
+  return lines.map(l => l.slice(Math.min(ind, l.match(/^\s*/)[0].length)));
+}
+function itemToBinding(it) {
+  const code = it.code.split('\n');
+  const head = code[0];
+  const hi = head.indexOf(it.spec + '::');
+  if (hi < 0) return null;
+  let rhs = head.slice(hi + it.spec.length + 2), comment = '';
+  const cm = rhs.match(/\s+;\s?(.*)$/);
+  if (cm) { comment = cm[1].trim(); rhs = rhs.slice(0, cm.index); }
+  rhs = rhs.trim();
+  let act, tapStyle = '';
+  if (rhs && !/^\{\s*$/.test(rhs)) {
+    act = it.kind === 'remap' ? { type: 'remap', value: rhs } : (parseStmt(rhs) || { type: 'code', value: rhs });
+  } else {
+    let body = code.slice(1);
+    while (body.length && !body[body.length - 1].trim()) body.pop();
+    if (!rhs && body.length && /^\s*\{\s*$/.test(body[0])) body.shift();
+    if (body.length && /^\s*(\}|return)\s*$/i.test(body[body.length - 1])) body.pop();
+    body = dedent(body);
+    let joined = body.join('\n').trim();
+    if (!joined.includes('\n')) { const c = joined.match(/^(.*?)\s+;\s?(.*)$/); if (c && !comment) { joined = c[1]; comment = c[2].trim(); } }
+    const tap = joined.match(/^KeyWait\(\s*"([^"]+)"\s*\)\s*\n\s*if\s*\(?\s*A_PriorKey\s*=\s*(?:"[^"]+"|GetKeyName\(\s*"[^"]+"\s*\))\s*\)?\s*\{?\s*\n\s*([^\n]+?)\s*(?:\n\s*\})?$/i);
+    if (tap && parseStmt(tap[2])) { act = parseStmt(tap[2]); tapStyle = 'priorkey'; }
+    else act = parseStmt(joined) || { type: 'code', value: joined };
+  }
+  return { ctx: it.ctx || '', prefix: it.prefixRaw || '', mods: [...it.mods], key: it.keyRaw, up: !!it.up,
+    flags: { ...it.flags }, act, comment, tapStyle };
+}
+
+/* ---------- 割り当て → コード ---------- */
+const q2 = s => '"' + String(s).replace(/`/g, '``').replace(/"/g, '`"').replace(/\n/g, '`n') + '"';
+const keySpec = k => k === ';' ? '`;' : k;
+const MODCH = { Ctrl: '^', Alt: '!', Shift: '+', Win: '#' };
+const modChars = m => (m[0] === 'L' && m.length > 3 ? '<' : m[0] === 'R' && m.length > 3 ? '>' : '') + MODCH[modBase(m)];
+function specOf(b) {
+  let s;
+  if (b.prefix) s = (b.flags.tilde ? '~' : '') + keySpec(b.prefix) + ' & ' + keySpec(b.key);
+  else s = (b.flags.star ? '*' : '') + (b.flags.tilde ? '~' : '') + (b.flags.dollar ? '$' : '') + b.mods.map(modChars).join('') + keySpec(b.key);
+  return s + (b.up ? ' up' : '');
+}
+function sendOfRemap(v) {
+  const m = v.match(/^([#!^+<>]*)(.+)$/);
+  return `Send(${q2('{Blind}' + m[1] + '{' + m[2] + '}')})`;
+}
+function stmtOf(a) {
+  switch (a.type) {
+    case 'send': return `Send(${q2(a.value)})`;
+    case 'text': return a.value === '"' ? 'SendText(Chr(34))' : `SendText(${q2(a.value)})`;
+    case 'run': return `Run(${q2(a.value)})`;
+    case 'remap': return sendOfRemap(a.value);
+    default: return a.value;
+  }
+}
+const isSimpleKey = k => /^[a-z0-9]$/i.test(k);
+function codeOf(b, asTap) {
+  const cm = b.comment ? '  ; ' + b.comment : '';
+  const a = b.act;
+  if ((asTap || b.tapStyle === 'priorkey') && a.type !== 'code' && !b.prefix && !b.mods.length && !b.up) {
+    // 単押し判定つき（押して離すまでに他のキーを押さなかったときだけ動く）
+    const P = b.key, style = b.tapStyle || (isSimpleKey(P) ? 'priorkey' : 'plain');
+    if (style === 'priorkey') {
+      const cmp = isSimpleKey(P) ? q2(P) : `GetKeyName(${q2(P)})`;
+      return [`$${keySpec(P)}:: {${cm}`, `    KeyWait(${q2(P)})`, `    if (A_PriorKey = ${cmp})`, `        ${stmtOf(a)}`, `}`];
+    }
+    return [`$${keySpec(P)}::${stmtOf(a)}${cm}`];
+  }
+  const spec = specOf(b);
+  if (a.type === 'remap') return [`${spec}::${a.value}${cm}`];
+  if (a.type !== 'code') return [`${spec}::${stmtOf(a)}${cm}`];
+  const ls = String(a.value).replace(/\s+$/, '').split('\n');
+  if (ls.length <= 1) return [`${spec}::${ls[0] || 'return'}${cm}`];
+  return [`${spec}:: {${cm}`, ...ls.map(l => '    ' + l), '}'];
+}
+
+const lc = s => String(s || '').toLowerCase();
+const sameKey = (a, b) => lc(a) === lc(b) || (() => { const x = resolveKey(a), y = resolveKey(b); return x.length > 0 && x.some(i => y.includes(i)); })();
+function sameTrig(a, b) {
+  return (a.ctx || '') === (b.ctx || '') && !!a.up === !!b.up &&
+    (a.prefix ? (b.prefix && sameKey(a.prefix, b.prefix)) : !b.prefix) &&
+    a.mods.map(modBase).sort().join() === b.mods.map(modBase).sort().join() && sameKey(a.key, b.key);
+}
+function prefixesOf(doc) {
+  const ps = [];
+  const add = p => { if (p && !ps.some(x => sameKey(x, p))) ps.push(p); };
+  doc.bindings.forEach(b => add(b.prefix));
+  doc.layerKeys.forEach(add);
+  return ps;
+}
+function isTapOf(b, P) { return !b.prefix && !b.mods.length && !b.up && !b.ctx && sameKey(b.key, P); }
+
+/* 手書き部分に「P::」（単押し）があるか。あれば自動の単押しは作らない（重複エラー防止） */
+function handDefinesTap(doc, P) {
+  const re = new RegExp('^\\s*[~*$]*' + keySpec(P).replace(/[.*+?^${}()|[\]\\`]/g, '\\$&') + '\\s*::', 'i');
+  let inC = false;
+  for (const l of doc.hand) {
+    const t = l.trim();
+    if (inC) { if (t.includes('*/')) inC = false; continue; }
+    if (t.startsWith('/*')) { inC = !t.includes('*/'); continue; }
+    if (re.test(l)) return true;
+  }
+  return false;
+}
+const layerTitle = P => { const n = keyName(P); return lc(n) === lc(P) ? P : `${n} (${P})`; };
+function genRegion(doc) {
+  const out = [REGION_BEGIN], map = [null];
+  const push = (lines, id) => { lines.forEach((l, i) => { out.push(l); map.push(i === 0 ? id : null); }); };
+  const head = t => { out.push('', `; --- ${t} ---`); map.push(null, null); };
+  const bs = doc.bindings, prefixes = prefixesOf(doc);
+  const used = new Set();
+  const ctxs = ['', ...new Set(bs.map(b => b.ctx).filter(Boolean))];
+  for (const ctx of ctxs) {
+    const inCtx = bs.filter(b => (b.ctx || '') === ctx);
+    if (ctx) { out.push('', '#HotIf ' + ctx); map.push(null, null); }
+    const taps = ctx ? [] : inCtx.filter(b => prefixes.some(P => isTapOf(b, P)));
+    const base = inCtx.filter(b => !b.prefix && !b.mods.length && !taps.includes(b));
+    if (base.length) { head('単体のキー'); base.forEach(b => push(codeOf(b), b.id)); }
+    const modGroups = [...new Set(inCtx.filter(b => !b.prefix && b.mods.length).map(b => b.mods.join('+')))];
+    for (const g of modGroups) { head(`${g} + キー`); inCtx.filter(b => !b.prefix && b.mods.join('+') === g).forEach(b => push(codeOf(b), b.id)); }
+    for (const P of prefixes) {
+      const combos = inCtx.filter(b => b.prefix && sameKey(b.prefix, P));
+      if (!ctx) {
+        const hasCombos = bs.some(b => b.prefix && sameKey(b.prefix, P));
+        if (!hasCombos && !combos.length) continue;
+        head(`${layerTitle(P)} レイヤー（${layerTitle(P)} を押しながら）`);
+        const tap = taps.find(b => isTapOf(b, P));
+        if (tap) push(codeOf(tap, true), tap.id);
+        else if (handDefinesTap(doc, P)) { out.push(`; （${layerTitle(P)} の単押しは手書き部分で定義されています）`); map.push(null); }
+        else {
+          const auto = { key: P, act: { type: 'send', value: '{' + P + '}' }, comment: `${AUTO_TAG} 単押しで元のキーを入力`, flags: {}, mods: [] };
+          push(codeOf(auto, true), 'auto:' + P);
+        }
+      } else if (combos.length) head(`${layerTitle(P)} レイヤー（${layerTitle(P)} を押しながら）`);
+      combos.forEach(b => push(codeOf(b), b.id));
+    }
+    if (ctx) { out.push('#HotIf'); map.push(null); }
+  }
+  out.push('', REGION_END); map.push(null, null);
+  return { lines: out, map };
+}
+
+/* DOC → .ahk テキスト（行番号 → 割り当てID の対応つき） */
+function compose(doc) {
+  const hasMark = doc.hand.includes(REGION_MARK);
+  const region = hasMark ? genRegion(doc) : null;
+  const lines = [], map = new Map(), handIdx = [];
+  let rs = 0, re = 0;
+  doc.hand.forEach((l, hi) => {
+    if (l === REGION_MARK) {
+      rs = lines.length + 1;
+      region.lines.forEach((x, i) => { lines.push(x); handIdx.push(-1); if (region.map[i] != null) map.set(lines.length, region.map[i]); });
+      re = lines.length;
+    } else { lines.push(l); handIdx.push(hi); }
+  });
+  return { text: lines.join(doc.eol), lines, map, handIdx, regionStart: rs, regionEnd: re };
+}
+
+/* 管理区画がまだ無ければ、先頭の # 指定のあとに作る */
+function ensureMark(doc, at) {
+  if (doc.hand.includes(REGION_MARK)) return;
+  if (at == null) {
+    at = 0;
+    for (let i = 0; i < doc.hand.length; i++) {
+      const t = doc.hand[i].trim();
+      if (!t || t.startsWith(';') || (/^#/.test(t) && !/^#(HotIf|If)/i.test(t))) { if (t.startsWith('#')) at = i + 1; continue; }
+      break;
+    }
+  }
+  doc.hand.splice(at, 0, '', REGION_MARK, '');
+}
+
+/* ---------- 変更操作（すべて Undo 可能） ---------- */
+function snapshot() { return JSON.stringify({ hand: DOC.hand, bindings: DOC.bindings, nextId: DOC.nextId, ctxs: DOC.ctxs, layerKeys: DOC.layerKeys, name: DOC.name }); }
+function restore(s) { Object.assign(DOC, JSON.parse(s)); }
+function mutate(fn, msg) {
+  const before = snapshot();
+  fn();
+  if (snapshot() === before) { derive(); return false; }
+  UNDO.push(before); if (UNDO.length > 200) UNDO.shift(); REDO.length = 0;
+  refresh(); if (msg) toast(msg);
+  return true;
+}
+function undo() { if (!UNDO.length) return; REDO.push(snapshot()); restore(UNDO.pop()); refresh(); toast('元に戻しました'); }
+function redo() { if (!REDO.length) return; UNDO.push(snapshot()); restore(REDO.pop()); refresh(); toast('やり直しました'); }
+
+function bindingById(id) { return DOC.bindings.find(b => b.id === id); }
+function findBinding(trig) { return DOC.bindings.find(b => sameTrig(b, trig)); }
+
+/* 手書き（区画の外）の定義を割り当てデータに取り込む。戻り値: 取り込めた件数 */
+function importItemsRaw(items) {
+  const comp = S.comp;
+  const ok = [];
+  for (const it of items) {
+    if (!it.locked) continue;
+    const stacked = S.items.some(o => o !== it && o.locked && o.line > it.line && o.line <= it.endLine);
+    if (stacked) continue;
+    const bd = itemToBinding(it);
+    if (!bd) continue;
+    ok.push({ it, bd, h0: comp.handIdx[it.line - 1], h1: comp.handIdx[it.endLine - 1] });
+  }
+  if (!ok.length) return 0;
+  // 区画の位置：最初に取り込むグローバル定義の位置（無ければ先頭の # 指定のあと）
+  let markAt = null;
+  if (!DOC.hand.includes(REGION_MARK)) {
+    const g = ok.filter(o => !o.bd.ctx).sort((a, b) => a.h0 - b.h0)[0];
+    if (g) markAt = g.h0;
+  }
+  const del = new Set();
+  for (const o of ok) for (let i = o.h0; i <= o.h1; i++) del.add(i);
+  if (markAt != null) {
+    const before = [...del].filter(i => i < markAt).length;
+    DOC.hand = DOC.hand.filter((_, i) => !del.has(i));
+    ensureMark(DOC, markAt - before);
+  } else {
+    DOC.hand = DOC.hand.filter((_, i) => !del.has(i));
+    ensureMark(DOC);
+  }
+  cleanupHand();
+  for (const o of ok.sort((a, b) => a.h0 - b.h0)) {
+    const ex = findBinding(o.bd);
+    if (ex) Object.assign(ex, { act: o.bd.act, comment: o.bd.comment, flags: o.bd.flags, tapStyle: o.bd.tapStyle });
+    else { o.bd.id = DOC.nextId++; DOC.bindings.push(o.bd); }
+  }
+  derive();   // 行番号が変わるので解析し直す（同じ操作の中で続けて使えるように）
+  return ok.length;
+}
+/* 取り込みで中身が空になった #HotIf ブロックを片付ける（それ以外の手書き部分は触らない） */
+function cleanupHand() {
+  const h = DOC.hand;
+  for (let i = 0; i < h.length; i++) {
+    if (/^\s*#HotIf\s+\S/i.test(h[i])) {
+      let j = i + 1;
+      while (j < h.length && (!h[j].trim())) j++;
+      if (j < h.length && /^\s*#HotIf\s*$/i.test(h[j])) { h.splice(i, j - i + 1); i--; }
+    }
+  }
+}
+
+function itemTrig(it) { return { ctx: it.ctx || '', prefix: it.prefixRaw || '', mods: it.mods, key: it.keyRaw, up: !!it.up }; }
+const NOFLAGS = () => ({ tilde: false, star: false, dollar: false });
+
+/* 表示中の定義を、編集できる割り当てデータにする（手書きなら取り込み、自動の単押しなら実体化） */
+function ensureManaged(it) {
+  if (it.bid) return bindingById(it.bid);
+  if (it.auto) {
+    ensureMark(DOC);
+    const b = { id: DOC.nextId++, ctx: '', prefix: '', mods: [], key: it.keyRaw, up: false, flags: NOFLAGS(),
+      act: { type: 'send', value: '{' + it.keyRaw + '}' }, comment: '', tapStyle: '' };
+    DOC.bindings.push(b); return b;
+  }
+  if (it.locked && importItemsRaw([it])) return findBinding(itemTrig(it));
+  return null;
+}
+/* 同じ条件の手書き定義があれば先に取り込む（AHK の重複エラーを防ぐ） */
+function absorbHand(trig) {
+  const hand = S.items.find(it => it.locked && sameTrig(itemTrig(it), trig));
+  if (hand) importItemsRaw([hand]);
+}
+function assignRaw(trig, act, comment) {
+  absorbHand(trig);
+  ensureMark(DOC);
+  const ex = findBinding(trig);
+  if (ex) { ex.act = act; if (comment !== undefined) ex.comment = comment; return ex; }
+  const b = { id: DOC.nextId++, ctx: trig.ctx || '', prefix: trig.prefix || '', mods: trig.mods || [], key: trig.key,
+    up: !!trig.up, flags: trig.flags || NOFLAGS(), act, comment: comment || '', tapStyle: '' };
+  DOC.bindings.push(b); return b;
+}
+function moveRaw(b, trig, copy) {
+  absorbHand(trig);
+  const other = findBinding(trig);
+  if (other === b) return false;
+  const T = { ctx: trig.ctx || '', prefix: trig.prefix || '', mods: trig.mods || [], key: trig.key, up: !!trig.up };
+  if (copy) {
+    if (other) DOC.bindings = DOC.bindings.filter(x => x !== other);
+    DOC.bindings.push(Object.assign(JSON.parse(JSON.stringify(b)), T, { id: DOC.nextId++, tapStyle: '' }));
+  } else {
+    const from = { ctx: b.ctx, prefix: b.prefix, mods: [...b.mods], key: b.key, up: b.up };
+    Object.assign(b, T, { tapStyle: '' });
+    if (other) Object.assign(other, from, { tapStyle: '' });
+  }
+  return true;
+}
+function removeHandRaw(it) {
+  const a = S.comp.handIdx[it.line - 1], z = S.comp.handIdx[it.endLine - 1];
+  if (a < 0) return false;
+  DOC.hand.splice(a, z - a + 1); cleanupHand(); derive();
+  return true;
+}
+
+function assign(trig, act, comment) { return mutate(() => { assignRaw(trig, act, comment); }, '割り当てました'); }
+function removeBinding(id) { return mutate(() => { DOC.bindings = DOC.bindings.filter(b => b.id !== id); }, '削除しました'); }
+function removeItem(it) {
+  if (it.auto) { toast('これは自動で作られる「単押し」です。別の動作を割り当てると置き換わります'); return false; }
+  if (it.bid) return removeBinding(it.bid);
+  return mutate(() => removeHandRaw(it), '手書きの定義を削除しました');
+}
+function moveItem(it, trig, copy) {
+  return mutate(() => { const b = ensureManaged(it); if (!b) return false; return moveRaw(b, trig, copy); }, copy ? 'コピーしました' : '移動しました');
+}
+function addLayerKey(raw) {
+  return mutate(() => { if (!DOC.layerKeys.some(k => sameKey(k, raw))) DOC.layerKeys.push(raw); }, `${keyName(raw)} をレイヤーキーにしました`);
+}
+function importAllHand() {
+  const locked = S.items.filter(it => it.locked);
+  let n = 0;
+  mutate(() => { n = importItemsRaw(locked); if (!n) return false; }, null);
+  return n;
+}
+
+/* ---------- 保存 ---------- */
+function persist() { try { localStorage.setItem('als.doc', JSON.stringify(DOC)); localStorage.setItem('als.layout', S.layout); } catch (_) {} }
+function loadPersisted() {
+  try { const d = JSON.parse(localStorage.getItem('als.doc') || 'null'); if (d && d.hand) { DOC = Object.assign(newDoc(), d); } } catch (_) {}
+  S.layout = localStorage.getItem('als.layout') || 'jis';
+}
+
+</script>
+<script>
+/* ---- js/derive.js ---- */
+"use strict";
+/* =========================================================
+   DOC → .ahk → 解析 → 表示用データ（レイヤー・条件）
+   ========================================================= */
+function layerNameOf(it) {
+  if (it.prefixRaw) return keyName(it.prefixRaw) + ' ＆';
+  return it.mods.length ? it.mods.join('+') : 'ベース';
+}
+
+function derive() {
+  LAYOUT = buildLayout(S.layout); LAYOUT_IDS = new Set(LAYOUT.map(k => k.id));
+  S.ctxDir = {};
+  const comp = compose(DOC);
+  S.comp = comp;
+  const r = parseAHK(comp.text, DOC.name);
+  S.items = r.items; S.hotstrings = r.hs; S.notes = r.notes; S.v2 = r.v2;
+  S.layers = new Map(); const ctxSet = [''];
+  for (const it of S.items) {
+    it.keyIds = resolveKey(it.keyRaw);
+    it.prefixIds = it.prefixRaw ? resolveKey(it.prefixRaw) : [];
+    it.layerName = layerNameOf(it);
+    it.lkey = (it.ctx || '') + '\u0001' + it.layerName;
+    it.managed = comp.regionStart > 0 && it.line >= comp.regionStart && it.line <= comp.regionEnd;
+    it.locked = !it.managed;
+    const bid = comp.map.get(it.line);
+    it.bid = typeof bid === 'number' ? bid : null;
+    it.auto = typeof bid === 'string';
+    if (!ctxSet.includes(it.ctx || '')) ctxSet.push(it.ctx || '');
+    if (!S.layers.has(it.lkey)) S.layers.set(it.lkey, { key: it.lkey, ctx: it.ctx || '', name: it.layerName,
+      type: it.prefixRaw ? 'prefix' : (it.mods.length ? 'mod' : 'base'), mods: it.mods, prefixRaw: it.prefixRaw, prefixIds: it.prefixIds, items: [] });
+    S.layers.get(it.lkey).items.push(it);
+  }
+  for (const c of DOC.ctxs) if (!ctxSet.includes(c)) ctxSet.push(c);
+  S.ctxs = ctxSet.filter((c, i) => c || S.items.length || i === 0);
+  for (const id of [...S.sim.held]) if (!holdableIds().has(id)) S.sim.held.delete(id);
+  if (S.appCtx && !S.ctxs.includes(S.appCtx)) S.appCtx = '';
+  if (S.sel.startsWith('L:') && !S.layers.has(S.sel.slice(2))) S.sel = 'all';
+  // このキーに使われている AHK 名（例: @ の位置 → "@"）を覚えておく
+  S.rawName = {};
+  for (const it of S.items) {
+    if (it.keyIds.length === 1 && !S.rawName[it.keyIds[0]]) S.rawName[it.keyIds[0]] = it.keyRaw;
+    if (it.prefixIds.length === 1 && !S.rawName[it.prefixIds[0]]) S.rawName[it.prefixIds[0]] = it.prefixRaw;
+  }
+}
+const rawNameFor = id => S.rawName[id] || idToAhk(id);
+
+/* 変更のたびに呼ぶ */
+function refresh() { derive(); persist(); renderAll(); }
+
+function layersOfCtx(ctx) {
+  const order = { base: 0, mod: 1, prefix: 2 };
+  return [...S.layers.values()].filter(l => l.ctx === ctx)
+    .sort((a, b) => order[a.type] - order[b.type] || a.mods.length - b.mods.length || a.name.localeCompare(b.name));
+}
+function heldIds(layer) {
+  if (!layer) return [];
+  const ids = [];
+  for (const m of (layer.ctx || '').matchAll(/GetKeyState\(\s*"?(\w+)"?/gi)) ids.push(...resolveKey(m[1]));
+  if (layer.type === 'prefix') return ids.concat(layer.prefixIds);
+  for (const m of layer.mods) {
+    const b = modBase(m).toLowerCase(), s = m[0] === 'L' && m.length > 3 ? 'l' : m[0] === 'R' && m.length > 3 ? 'r' : '';
+    if (s) ids.push(s + b); else ids.push('l' + b, 'r' + b);
+  }
+  return ids;
+}
+function triggersOfCtx(ctx) {
+  const map = {};
+  for (const l of layersOfCtx(ctx)) { if (l.type === 'base') continue; for (const id of heldIds(l)) (map[id] = map[id] || []).push(l); }
+  return map;
+}
+
+</script>
+<script>
+/* ---- js/resolve.js ---- */
+"use strict";
+/* =========================================================
+   押している状態から、動くホットキーを求める
+   ========================================================= */
+const STD_MODS = ['lctrl','rctrl','lshift','rshift','lalt','ralt','lwin','rwin'];
+function holdableIds(){
+  const set = new Set(STD_MODS);
+  for(const l of S.layers.values()) for(const id of heldIds(l)) set.add(id);
+  if(typeof DOC!=='undefined' && DOC) for(const k of DOC.layerKeys) resolveKey(k).forEach(id=>set.add(id));
+  return set;
+}
+function gksIds(ctx){ const ids=[]; for(const m of (ctx||'').matchAll(/GetKeyState\(\s*"?(\w+)"?/gi)) ids.push(...resolveKey(m[1])); return ids; }
+function ctxActive(ctx){
+  if(!ctx) return true;
+  const g = gksIds(ctx);
+  if(g.length) return g.every(id=>S.sim.held.has(id));
+  return S.appCtx===ctx;
+}
+function activeCtxs(){ return S.ctxs.filter(c=>c && ctxActive(c)).concat(['']); }
+function modsOk(it, H){
+  for(const m of it.mods){
+    const b=modBase(m).toLowerCase(), sd=m[0]==='L'?'l':m[0]==='R'?'r':'';
+    if(!(sd ? H.has(sd+b) : (H.has('l'+b)||H.has('r'+b)))) return false;
+  }
+  if(it.flags.star) return true;
+  for(const b of ['ctrl','alt','shift','win'])
+    if((H.has('l'+b)||H.has('r'+b)) && !it.mods.some(m=>modBase(m).toLowerCase()===b)) return false;
+  return true;
+}
+/* いまの押下状態で id を押した（離した）時に動くホットキー */
+function resolvePress(id, wantUp=false){
+  const H = S.sim.held;
+  for(const ctx of activeCtxs()){
+    let best=null, bs=-1;
+    for(const it of S.items){
+      if((it.ctx||'')!==ctx || !it.keyIds.includes(id) || !!it.up!==wantUp) continue;
+      let sc=-1;
+      if(it.prefixRaw){ if(it.prefixIds.some(p=>H.has(p)) && !it.prefixIds.includes(id)) sc = 3; }
+      else if(modsOk(it,H)) sc = it.mods.length ? 2 : 1;
+      if(sc>bs){ bs=sc; best=it; }
+    }
+    if(best && bs>=0) return best;
+  }
+  return null;
+}
+function heldLabel(){ return [...S.sim.held].map(capLabel); }
+function modIdsFor(mods){ return mods.map(m=>(m[0]==='R'?'r':'l')+modBase(m).toLowerCase()); }
+const CODE2ID = {Escape:'esc',Backspace:'backspace',Tab:'tab',CapsLock:'capslock',Enter:'enter',ShiftLeft:'lshift',ShiftRight:'rshift',ControlLeft:'lctrl',ControlRight:'rctrl',
+  AltLeft:'lalt',AltRight:'ralt',MetaLeft:'lwin',MetaRight:'rwin',OSLeft:'lwin',OSRight:'rwin',ContextMenu:'appskey',Space:'space',Minus:'-',Equal:'=',BracketLeft:'[',BracketRight:']',
+  Backslash:'\\',Semicolon:';',Quote:"'",Backquote:'`',Comma:',',Period:'.',Slash:'/',IntlYen:'jp_yen',IntlRo:'jp_ro',NonConvert:'muhenkan',Convert:'henkan',KanaMode:'kana',
+  ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down',Home:'home',End:'end',PageUp:'pgup',PageDown:'pgdn',Insert:'insert',Delete:'delete',
+  PrintScreen:'printscreen',ScrollLock:'scrolllock',Pause:'pause'};
+function codeToId(code){
+  if(CODE2ID[code]) return CODE2ID[code];
+  let m;
+  if((m=code.match(/^Key([A-Z])$/))) return m[1].toLowerCase();
+  if((m=code.match(/^Digit(\d)$/))) return m[1];
+  if((m=code.match(/^F(\d+)$/))) return 'f'+m[1];
+  return null;
+}
+
+</script>
+<script>
+/* ---- js/palette.js ---- */
+"use strict";
+/* =========================================================
+   パレット（キーにドラッグして割り当てる部品）
+   act: 割り当てる動作 / ask: ドロップ時に内容を尋ねる / special: 特別な部品
+   ========================================================= */
+const R = v => ({ type: 'remap', value: v });
+const SD = v => ({ type: 'send', value: v });
+const TX = v => ({ type: 'text', value: v });
+
+const PALETTE = [
+  { cat: 'レイヤー', items: [
+    { label: '🔑 レイヤーキー', sub: 'このキーを押しながら使う面を作る', special: 'layer' },
+  ]},
+  { cat: '移動', items: [
+    { label: '←', sub: 'カーソル左', act: R('Left') }, { label: '→', sub: 'カーソル右', act: R('Right') },
+    { label: '↑', sub: 'カーソル上', act: R('Up') }, { label: '↓', sub: 'カーソル下', act: R('Down') },
+    { label: 'Home', sub: '行頭へ', act: R('Home') }, { label: 'End', sub: '行末へ', act: R('End') },
+    { label: 'PgUp', sub: '前のページ', act: R('PgUp') }, { label: 'PgDn', sub: '次のページ', act: R('PgDn') },
+    { label: '⇠単語', sub: '単語単位で左へ', act: SD('^{Left}') }, { label: '単語⇢', sub: '単語単位で右へ', act: SD('^{Right}') },
+    { label: '先頭', sub: '文書の先頭へ', act: SD('^{Home}') }, { label: '末尾', sub: '文書の末尾へ', act: SD('^{End}') },
+  ]},
+  { cat: '編集', items: [
+    { label: 'Enter', sub: '改行・決定', act: R('Enter') }, { label: '⇧Enter', sub: '改行（送信しない）', act: R('+Enter') },
+    { label: '^Enter', sub: 'Ctrl+Enter', act: R('^Enter') }, { label: 'BS', sub: '左を1文字削除', act: R('BackSpace') },
+    { label: 'Del', sub: '右を1文字削除', act: R('Delete') }, { label: 'Tab', sub: 'タブ', act: R('Tab') },
+    { label: 'Esc', sub: 'キャンセル', act: R('Esc') }, { label: 'Space', sub: 'スペース', act: R('Space') },
+    { label: '単語削除', sub: 'Ctrl+BS', act: SD('^{BS}') },
+  ]},
+  { cat: 'ショートカット', items: [
+    { label: 'コピー', sub: 'Ctrl+C', act: SD('^c') }, { label: '貼り付け', sub: 'Ctrl+V', act: SD('^v') },
+    { label: '切り取り', sub: 'Ctrl+X', act: SD('^x') }, { label: '元に戻す', sub: 'Ctrl+Z', act: SD('^z') },
+    { label: 'やり直し', sub: 'Ctrl+Y', act: SD('^y') }, { label: '保存', sub: 'Ctrl+S', act: SD('^s') },
+    { label: '全選択', sub: 'Ctrl+A', act: SD('^a') }, { label: '検索', sub: 'Ctrl+F', act: SD('^f') },
+    { label: '新しいタブ', sub: 'Ctrl+T', act: SD('^t') }, { label: 'タブを閉じる', sub: 'Ctrl+W', act: SD('^w') },
+    { label: '次のタブ', sub: 'Ctrl+Tab', act: SD('^{Tab}') }, { label: '前のタブ', sub: 'Ctrl+Shift+Tab', act: SD('^+{Tab}') },
+    { label: 'ウィンドウを閉じる', sub: 'Alt+F4', act: SD('!{F4}') }, { label: 'クリップボード履歴', sub: 'Win+V', act: SD('#v') },
+    { label: 'スクショ', sub: 'Win+Shift+S', act: SD('#+s') },
+  ]},
+  { cat: '数字', items: [...'1234567890'].map(c => ({ label: c, sub: '', act: R(c) })) },
+  { cat: '記号', items: [
+    ...[...'!#$%&\'()=~|-^\\@[]+*<>,./?_:;`{}'].map(c => ({ label: c, sub: '', act: '`{};'.includes(c) ? TX(c) : R(c) })),
+    { label: '"', sub: '', act: TX('"') },
+  ]},
+  { cat: 'カッコ（中にカーソル）', items: [
+    { label: '「」', sub: '', act: SD('「」{Left}') }, { label: '（）', sub: '', act: SD('（）{Left}') },
+    { label: '()', sub: '', act: SD('(){Left}') }, { label: '[]', sub: '', act: SD('[]{Left}') },
+    { label: '<>', sub: '', act: SD('<>{Left}') }, { label: '{}', sub: '', act: SD('{{}{}}{Left}') },
+    { label: '""', sub: '', act: SD('""{Left}') },
+  ]},
+  { cat: '日本語入力', items: [
+    { label: '半/全', sub: 'IME 切り替え', act: SD('{vkF3sc029}') }, { label: 'IME オン', sub: '変換キー', act: SD('{vk1C}') },
+    { label: 'IME オフ', sub: '無変換キー', act: SD('{vk1D}') },
+  ]},
+  { cat: 'ファンクション', items: [...Array(12)].map((_, i) => ({ label: 'F' + (i + 1), sub: '', act: R('F' + (i + 1)) })) },
+  { cat: '修飾キーにする', items: [
+    { label: 'Ctrl', sub: 'Ctrl として動く', act: R('Ctrl') }, { label: 'Shift', sub: 'Shift として動く', act: R('Shift') },
+    { label: 'Alt', sub: 'Alt として動く', act: R('Alt') }, { label: 'Win', sub: 'Win として動く', act: R('LWin') },
+  ]},
+  { cat: 'カスタム', items: [
+    { label: '✍ 文字を入力…', sub: '好きな文字列を入力', ask: 'text' },
+    { label: '⌨ キー操作を送る…', sub: 'Send 記法で指定', ask: 'send' },
+    { label: '🚀 アプリ・URLを開く…', sub: 'Run', ask: 'run' },
+    { label: '🧩 コードを書く…', sub: 'AutoHotkey のコード', ask: 'code' },
+    { label: '🚫 無効にする', sub: '押しても何もしない', act: { type: 'code', value: 'return' } },
+  ]},
+];
+const PAL = PALETTE.flatMap(c => c.items.map(it => Object.assign(it, { cat: c.cat })));
+
+const ASK_TEXT = {
+  text: '入力したい文字（例: よろしくお願いします。）',
+  send: 'Send 記法（例: ^c は Ctrl+C、{Left} は ←、{Enter} は Enter）',
+  run: '開くアプリ・ファイル・URL（例: notepad.exe / https://example.com）',
+  code: 'AutoHotkey v2 のコード（1行。複数行は右の欄で編集できます）',
+};
+function askAct(kind) {
+  const v = prompt(ASK_TEXT[kind], '');
+  if (v == null || v === '') return null;
+  return { type: kind, value: v };
+}
+
+</script>
+<script>
+/* ---- js/diff.js ---- */
+"use strict";
+function diffLines(a, b){
+  let s=0; while(s<a.length && s<b.length && a[s]===b[s]) s++;
+  let ea=a.length, eb=b.length; while(ea>s && eb>s && a[ea-1]===b[eb-1]){ ea--; eb--; }
+  const A=a.slice(s,ea), B=b.slice(s,eb), n=A.length, m=B.length;
+  const ops=[];
+  for(let i=0;i<s;i++) ops.push([' ',a[i],i+1]);
+  if(n*m > 4e6){ A.forEach(x=>ops.push(['-',x])); B.forEach(x=>ops.push(['+',x])); }
+  else {
+    const W=m+1, dp=new Uint32Array((n+1)*W);
+    for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--) dp[i*W+j] = A[i]===B[j] ? dp[(i+1)*W+j+1]+1 : Math.max(dp[(i+1)*W+j], dp[i*W+j+1]);
+    let i=0,j=0;
+    while(i<n||j<m){
+      if(i<n&&j<m&&A[i]===B[j]){ ops.push([' ',A[i]]); i++; j++; }
+      else if(j<m && (i>=n || dp[i*W+j+1]>=dp[(i+1)*W+j])){ ops.push(['+',B[j]]); j++; }
+      else { ops.push(['-',A[i]]); i++; }
+    }
+  }
+  for(let i=ea;i<a.length;i++) ops.push([' ',a[i]]);
+  // 新ファイルの行番号
+  let ln=0; for(const o of ops){ if(o[0]!=='-'){ ln++; o[2]=ln; } else o[2]=''; }
+  return ops;
+}
+function diffHTML(a, b){
+  const ops = diffLines(a.split(/\r?\n/), b.split(/\r?\n/));
+  const keep = new Set(); ops.forEach((o,i)=>{ if(o[0]!==' ') for(let k=i-2;k<=i+2;k++) keep.add(k); });
+  let h='', last=-1;
+  ops.forEach((o,i)=>{ if(!keep.has(i)) return; if(last>=0 && i>last+1) h+=`<div class="dl sep">⋯</div>`; last=i;
+    h+=`<div class="dl ${o[0]==='+'?'add':o[0]==='-'?'del':''}"><span class="ln">${o[2]}</span>${o[0]===' '?'&nbsp;':o[0]} ${esc(o[1])}</div>`; });
+  return h || '<div class="dim" style="padding:8px">変更なし</div>';
+}
+
+</script>
+<script>
+/* ---- js/sample.js ---- */
+"use strict";
+/* サンプル配列（初めて開いたときのお試し用）。手書き部分と管理区画の両方を含む */
+const SAMPLE = [
+  '#Requires AutoHotkey v2.0',
+  '#InputLevel 1',
+  '',
+  '; ==== BEGIN 配列アプリ管理区画 (ahk-layout-studio) : この区画はアプリが書き換えます。手で編集しないでください ====',
+  '',
+  '; --- 単体のキー ---',
+  'CapsLock::Ctrl',
+  '',
+  '; --- v レイヤー（v を押しながら） ---',
+  '$v:: {',
+  '    KeyWait("v")',
+  '    if (A_PriorKey = "v")',
+  '        Send("v")',
+  '}',
+  'v & i::Up',
+  'v & j::Left',
+  'v & k::Down',
+  'v & l::Right',
+  'v & o::BackSpace',
+  'v & m::Enter',
+  'v & f::Send("^t")',
+  '',
+  '; --- m レイヤー（m を押しながら） ---',
+  '$m:: {',
+  '    KeyWait("m")',
+  '    if (A_PriorKey = "m")',
+  '        Send("m")',
+  '}',
+  'm & q::!',
+  'm & e::#',
+  'm & p::Send("「」{Left}")',
+  '',
+  '#HotIf WinActive("ahk_exe chrome.exe")',
+  '',
+  '; --- Ctrl + キー ---',
+  '^h::Send("^{PgUp}")',
+  '^l::Send("^{PgDn}")',
+  '#HotIf',
+  '',
+  '; ==== END 配列アプリ管理区画 ====',
+  '',
+  '; --- ここから下は手書き（アプリは書き換えません） ---',
+  '$^v:: {',
+  '    Send("^v")',
+  '}',
+  '^!r::Reload',
+  '::otsu::お疲れ様です。',
+  '',
+].join('\r\n');
+
+</script>
+<script>
+/* ---- js/view-detail.js ---- */
+"use strict";
+/* =========================================================
+   くわしく画面（ツリー・全体マップ・一覧・検索）
+   ========================================================= */
+const kindName = {remap:'リマップ',send:'Send',action:'スクリプト'};
+const icon = l => l.type==='base'?'⌨':l.type==='mod'?'⇧':'🔗';
+
+function renderTree(){ /* くわしく画面の左ツリー */
+  const el=$('#tree');
+  let h = `<div class="node ${S.sel==='all'?'sel':''}" data-sel="all"><span class="tog"></span>📚<span class="nm">全体マップ</span><span class="cnt">${S.items.length}</span></div>`;
+  h += `<div class="tsec">コンテキスト / レイヤー</div>`;
+  S.ctxs.forEach((ctx,ci)=>{
+    const ls = layersOfCtx(ctx), open = !S.collapsed[ci];
+    const n = ls.reduce((a,l)=>a+l.items.length,0);
+    h += `<div class="node ${S.sel==='C:'+ci?'sel':''}" data-sel="C:${ci}" title="${esc(ctx||'条件なし（常に有効）')}"><span class="tog" data-tog="${ci}">${open?'▼':'▶'}</span>${ctx?'🎯':'🌐'}<span class="nm">${esc(ctxLabel(ctx))}</span><span class="cnt">${n}</span></div>`;
+    if(open){
+      h += `<div class="children">`;
+      const grp = {base:[],mod:[],prefix:[]}; ls.forEach(l=>grp[l.type].push(l));
+      const gname = {base:'',mod:'修飾キー レイヤー',prefix:'カスタム レイヤー（A & B）'};
+      for(const g of ['base','mod','prefix']){
+        if(!grp[g].length) continue;
+        if(gname[g]) h+=`<div class="grp">${gname[g]}</div>`;
+        for(const l of grp[g]) h += `<div class="node ${S.sel==='L:'+l.key?'sel':''}" data-sel="L:${esc(l.key)}"><span class="tog"></span>${icon(l)}<span class="nm">${esc(l.name)}</span><span class="cnt">${l.items.length}</span></div>`;
+      }
+      h += `</div>`;
+    }
+  });
+  if(S.hotstrings.length) h += `<div class="tsec">その他</div><div class="node ${S.sel==='hs'?'sel':''}" data-sel="hs"><span class="tog"></span>✍<span class="nm">ホットストリング</span><span class="cnt">${S.hotstrings.length}</span></div>`;
+  el.innerHTML = h;
+}
+
+function unitFor(container){
+  const w = (container.clientWidth||900) - 4;
+  return Math.max(26, Math.min(60, w / KB_W));
+}
+
+/* キーボード描画 */
+function kbdHTML(layer, U, mini=false){
+  const ctx = layer ? layer.ctx : '';
+  const map = {};
+  if(layer) for(const it of layer.items) for(const id of it.keyIds) (map[id]=map[id]||[]).push(it);
+  const held = new Set(heldIds(layer));
+  const trig = triggersOfCtx(ctx);
+  const gap = mini?1.5:4;
+  let h = `<div class="kbd ${mini?'mini':''}" style="width:${KB_W*U}px;height:${KB_H*U}px">`;
+  for(const k of LAYOUT){
+    const its = map[k.id]||[];
+    const main = its.find(x=>!x.up) || its[0];
+    let cls = 'key', out='', bd='';
+    if(held.has(k.id)){ cls+=' held'; out = '押下'; }
+    else if(main){ cls+=' '+main.kind; out = main.out; }
+    else cls+=' empty';
+    if(trig[k.id] && !held.has(k.id)) cls+=' trigger';
+    if(!mini){
+      if(main){ const f=main.flags; bd = (f.tilde?'~':'')+(f.star?'*':'')+(its.some(x=>x.up)?'↑':'')+(its.length>1?' ×'+its.length:''); }
+      if(trig[k.id]) bd = '▸'+bd;
+      if(S.selKey===k.id) cls+=' selk';
+      if(S.query && its.some(x=>matchQ(x))) cls+=' hit';
+    }
+    const len=[...out].length;
+    const fs = mini?0: len<=2?Math.round(U*.36): len<=4?Math.round(U*.27): len<=7?Math.round(U*.21): Math.round(U*.18);
+    const tip = `${capLabel(k.id)}${its.length?' → '+its.map(x=>x.out+(x.up?' (離した時)':'')).join(' / '):''}${trig[k.id]?'\n▸ レイヤー: '+trig[k.id].map(l=>l.name).join(', '):''}`;
+    h += `<div class="${cls}" data-k="${esc(k.id)}" title="${esc(tip)}" style="left:${k.x*U}px;top:${k.y*U}px;width:${k.w*U-gap}px;height:${k.h*U-gap}px">`+
+      (mini?'':`<span class="cap">${esc(capLabel(k.id))}</span><span class="out" style="font-size:${fs}px">${esc(out)}</span><span class="bd">${esc(bd)}</span>`)+`</div>`;
+  }
+  return h+`</div>`;
+}
+
+function matchQ(it){
+  const q=S.query.toLowerCase(); if(!q) return false;
+  return [it.spec,it.out,it.code,keyName(it.keyRaw),it.layerName].some(v=>String(v||'').toLowerCase().includes(q));
+}
+
+function itemRow(it, showLayer){
+  return `<tr class="row" data-row="${esc(it.lkey)}" data-key="${esc(it.keyIds[0]||'')}">
+    <td class="mono">${esc(it.spec)}</td>
+    ${showLayer?`<td>${esc(ctxLabel(it.ctx))} › ${esc(it.layerName)}</td>`:''}
+    <td><b>${esc(keyName(it.keyRaw))}</b>${it.up?' <span class="dim">(離す)</span>':''}</td>
+    <td>${esc(it.out)}</td>
+    <td class="dim">${esc(meaning(it))}</td>
+    <td><span class="tag ${it.kind}">${kindName[it.kind]}</span></td>
+    <td class="dim mono">${esc(it.file)}:${it.line}</td></tr>`;
+}
+
+function renderDetailMain(){
+  const el=$('#main');
+
+  let h='';
+  if(S.notes.length) h += `<div class="notice">⚠ ${S.notes.slice(0,5).map(esc).join('<br>⚠ ')}${S.notes.length>5?`<br>…他 ${S.notes.length-5} 件`:''}</div>`;
+
+  if(S.query){
+    const res = S.items.filter(matchQ), hres=S.hotstrings.filter(x=>(x.abbr+x.text).toLowerCase().includes(S.query.toLowerCase()));
+    h += `<h2>🔍 「${esc(S.query)}」の検索結果 <span class="dim" style="font-size:13px">${res.length+hres.length} 件</span></h2>`;
+    h += `<table><tr><th>定義</th><th>場所</th><th>キー</th><th>出力</th><th>意味</th><th>種類</th><th>ファイル</th></tr>${res.map(x=>itemRow(x,true)).join('')}
+      ${hres.map(x=>`<tr><td class="mono">${esc(x.abbr)}</td><td>ホットストリング</td><td></td><td>${esc(x.text)}</td><td><span class="tag hs">HS</span></td><td class="dim mono">${esc(x.file)}:${x.line}</td></tr>`).join('')}</table>`;
+    el.innerHTML=h; return;
+  }
+
+  if(S.sel==='hs'){
+    h += `<h2>✍ ホットストリング <span class="dim" style="font-size:13px">${S.hotstrings.length} 件</span></h2>
+      <table><tr><th>入力</th><th>→ 変換後</th><th>オプション</th><th>コンテキスト</th><th>ファイル</th></tr>
+      ${S.hotstrings.map(x=>`<tr><td class="mono"><b>${esc(x.abbr)}</b></td><td>${esc(x.text)}</td><td class="mono dim">${esc(x.opts)}</td><td>${esc(ctxLabel(x.ctx))}</td><td class="dim mono">${esc(x.file)}:${x.line}</td></tr>`).join('')}</table>`;
+    el.innerHTML=h; return;
+  }
+
+  const MU = 17;
+  if(S.sel==='all' || S.sel.startsWith('C:')){
+    const ctxs = S.sel==='all' ? S.ctxs : [S.ctxs[+S.sel.slice(2)]];
+    const kinds = {remap:0,send:0,action:0}; S.items.forEach(x=>kinds[x.kind]++);
+    if(S.sel==='all'){
+      h += `<h2>📚 全体マップ</h2>
+        <div class="stat"><div><b>${S.items.length}</b>ホットキー</div><div><b>${S.layers.size}</b>レイヤー</div><div><b>${S.ctxs.length}</b>コンテキスト</div>
+        <div><b>${kinds.remap}</b>リマップ</div><div><b>${kinds.send}</b>Send</div><div><b>${kinds.action}</b>スクリプト</div><div><b>${S.hotstrings.length}</b>ホットストリング</div></div>`;
+    } else {
+      h += `<div class="crumb"><a data-sel="all">全体マップ</a> ›</div><h2>${ctxs[0]?'🎯':'🌐'} ${esc(ctxLabel(ctxs[0]))}</h2>
+        <div class="dim mono" style="margin-bottom:12px">${esc(ctxs[0]||'条件なし（常に有効）')}</div>`;
+    }
+    h += legendHTML();
+    for(const ctx of ctxs){
+      const ci=S.ctxs.indexOf(ctx);
+      if(S.sel==='all') h += `<div class="ctxhead">${ctx?'🎯':'🌐'} <a class="link" data-sel="C:${ci}">${esc(ctxLabel(ctx))}</a> <span class="dim mono" style="font-size:11px">${esc(ctx)}</span></div>`;
+      h += `<div class="cards">`;
+      for(const l of layersOfCtx(ctx)){
+        h += `<div class="card" data-sel="L:${esc(l.key)}"><h3><span>${icon(l)} ${esc(l.name)}</span><span class="dim">${l.items.length} 件</span></h3>${kbdHTML(l,MU,true)}</div>`;
+      }
+      h += `</div>`;
+    }
+    el.innerHTML=h; return;
+  }
+
+  // レイヤー
+  const layer = S.layers.get(S.sel.slice(2));
+  if(!layer){ S.sel='all'; return renderMain(); }
+  const ci = S.ctxs.indexOf(layer.ctx);
+  h += `<div class="crumb"><a data-sel="all">全体マップ</a> › <a data-sel="C:${ci}">${esc(ctxLabel(layer.ctx))}</a> ›</div>
+    <h2>${icon(layer)} ${esc(layer.name)} <span class="dim" style="font-size:13px">${layer.items.length} 件</span></h2>`;
+  if(layer.type!=='base') h += `<div class="dim" style="margin:-4px 0 6px">黄色のキーを押しながら、他のキーを押したときの動作</div>`;
+  h += legendHTML();
+  h += `<div id="kbwrap"></div>`;
+  const off = layer.items.filter(it=>!it.keyIds.some(id=>LAYOUT_IDS.has(id)));
+  if(off.length) h += `<div class="dim" style="font-size:12px;margin-bottom:6px">キーボード外のキー（マウス・テンキー等）</div><div class="chips">${off.map(it=>`<span class="chip ${it.kind}" data-off="${S.items.indexOf(it)}"><b>${esc(keyName(it.keyRaw))}</b> → ${esc(it.out)}</span>`).join('')}</div>`;
+  h += `<table><tr><th>定義</th><th>キー</th><th>出力</th><th>意味</th><th>種類</th><th>ファイル</th></tr>${layer.items.map(x=>itemRow(x,false)).join('')}</table>`;
+  el.innerHTML = h;
+  const wrap=$('#kbwrap'); wrap.innerHTML = kbdHTML(layer, unitFor(wrap));
+}
+
+function legendHTML(){
+  return `<div class="legend"><span><i style="background:var(--remap)"></i>リマップ</span><span><i style="background:var(--send)"></i>Send（キー/文字送信）</span>
+    <span><i style="background:var(--action)"></i>スクリプト</span><span><i style="background:var(--held)"></i>押下中のキー</span>
+    <span><i style="border:2px dashed var(--prefix)"></i>レイヤー起動キー ▸</span><span>~ 元キーも有効 / * ワイルドカード / ↑ 離した時</span></div>`;
+}
+
+function renderDetailPanel(){
+  const el=$('#detail');
+  const id=S.selKey;
+  if(!id){
+    el.innerHTML = `<div class="dim">キーボードのキーをクリックすると、そのキーの<b>全レイヤーでの割り当て</b>と元のコードが表示されます。<br><br>
+      破線のキー ▸ はレイヤーを起動するキーです。ダブルクリックでそのレイヤーへ移動します。</div>`;
+    return;
+  }
+  const curLayer = S.sel.startsWith('L:') ? S.layers.get(S.sel.slice(2)) : null;
+  const all = S.items.filter(it=>it.keyIds.includes(id) || it._offId===id);
+  let h = `<div style="display:flex;gap:10px;align-items:center;margin-bottom:10px"><span class="dk">${esc(LAYOUT_IDS.has(id)?capLabel(id):id)}</span>
+    <div><div style="font-weight:600">${esc(id)}</div><div class="dim" style="font-size:12px">${all.length} 件の割り当て</div></div></div>`;
+  // レイヤー起動
+  const trig = curLayer ? triggersOfCtx(curLayer.ctx) : triggersOfCtx('');
+  const prefLayers = [...S.layers.values()].filter(l=>l.type!=='base' && heldIds(l).includes(id));
+  if(prefLayers.length){
+    h += `<div class="di" style="border-color:var(--prefix)"><div class="hd">▸ このキーで起動するレイヤー</div>
+      ${prefLayers.map(l=>`<div style="margin-top:4px"><span class="link" data-sel="L:${esc(l.key)}">${icon(l)} ${esc(ctxLabel(l.ctx))} › ${esc(l.name)}</span> <span class="dim">(${l.items.length})</span></div>`).join('')}</div>`;
+  }
+  const cur = all.filter(it=>curLayer && it.lkey===curLayer.key);
+  const other = all.filter(it=>!cur.includes(it));
+  const block = it => `<div class="di"><div class="hd"><span class="tag ${it.kind}">${kindName[it.kind]}</span>
+      <span class="link" data-sel="L:${esc(it.lkey)}">${esc(ctxLabel(it.ctx))} › ${esc(it.layerName)}</span>
+      ${it.up?'<span class="dim">離した時</span>':''}${it.flags.tilde?'<span class="dim">~元キー有効</span>':''}${it.flags.star?'<span class="dim">*任意修飾</span>':''}</div>
+      <div style="margin:8px 0 4px;line-height:1.6">${comboHTML(it)}</div>
+      <div style="font-size:14px;margin:2px 0 4px">→ <b>${esc(it.out)}</b> <span class="dim">（${esc(meaning(it))}）</span></div>
+      <div class="dim mono" style="font-size:11px">${esc(it.file)} : ${it.line}${it.endLine>it.line?'–'+it.endLine:''}</div>
+      <pre class="mono">${esc(it.code)}</pre>
+      <div class="edb"><button class="btn" data-goto="${it.line}">⌨ キーボードで編集</button><button class="btn" data-delline="${it.line}">🗑 削除</button>${it.locked?'<span class="tag lock">🔒 手書き</span>':it.auto?'<span class="tag auto">自動</span>':'<span class="tag own">アプリ管理</span>'}</div></div>`;
+  if(cur.length) h += `<div class="tsec" style="margin-left:0">このレイヤー</div>${cur.map(block).join('')}`;
+  if(other.length) h += `<div class="tsec" style="margin-left:0">他のレイヤー・コンテキスト</div>${other.map(block).join('')}`;
+  if(!all.length && !prefLayers.length) h += `<div class="dim">このキーには割り当てがありません（通常どおり入力されます）。</div>`;
+  el.innerHTML = h;
+}
+
+
+</script>
+<script>
+/* ---- js/view-studio.js ---- */
+"use strict";
+/* =========================================================
+   キーボード画面（ためす＋つくる）
+   - キーをクリック: 押しっぱなし（レイヤーキー・修飾キー）／ためす
+   - パレットからキーへドラッグ: いまの状態で割り当て
+   - キーからキーへドラッグ: 移動（相手があれば入れ替え）、Ctrl/Alt+ドラッグでコピー
+   ========================================================= */
+const MODNAME = { ctrl: 'Ctrl', alt: 'Alt', shift: 'Shift', win: 'Win' };
+
+/* いまの押下状態で id を押したときの「条件」 */
+function triggerFor(id) {
+  const H = [...S.sim.held];
+  const pre = H.filter(x => !STD_MODS.includes(x));
+  const mods = pre.length ? [] : sortMods([...new Set(H.filter(x => STD_MODS.includes(x)).map(x => MODNAME[x.slice(1)]))]);
+  return { ctx: S.appCtx || '', prefix: pre.length ? rawNameFor(pre[0]) : '', mods, key: rawNameFor(id), up: false,
+    flags: { tilde: false, star: false, dollar: false } };
+}
+function stateLabel() {
+  const H = [...S.sim.held];
+  const app = S.appCtx ? `「${ctxLabel(S.appCtx)}」で ` : '';
+  if (!H.length) return app + '何も押していないとき';
+  return app + H.map(capLabel).join(' + ') + ' を押している間';
+}
+function prefixChips() {
+  const ids = [];
+  const add = id => { if (id && !ids.includes(id) && !STD_MODS.includes(id)) ids.push(id); };
+  for (const l of S.layers.values()) if (l.type === 'prefix') l.prefixIds.slice(0, 1).forEach(add);
+  for (const k of DOC.layerKeys) resolveKey(k).slice(0, 1).forEach(add);
+  return ids.map(id => ({ id, n: S.items.filter(it => it.prefixIds.includes(id)).length }));
+}
+
+/* ---------- 描画 ---------- */
+function renderPalette() {
+  const q = S.paletteQ.toLowerCase();
+  let h = `<div class="pal-head"><input id="palQ" placeholder="🔍 部品をさがす" value="${esc(S.paletteQ)}"></div>
+    <div class="pal-hint">キーへ<b>ドラッグ</b>して割り当て。<br>キーを選んでから部品を<b>クリック</b>しても OK。</div>`;
+  for (const c of PALETTE) {
+    const items = c.items.filter(p => !q || (p.label + p.sub + c.cat).toLowerCase().includes(q));
+    if (!items.length) continue;
+    h += `<details class="pal-cat" ${S.palClosed && S.palClosed[c.cat] ? '' : 'open'} data-cat="${esc(c.cat)}"><summary>${esc(c.cat)}</summary><div class="pal-grid">` +
+      items.map(p => `<div class="pal ${p.special ? 'special' : ''}" draggable="true" data-pal="${PAL.indexOf(p)}" title="${esc(p.sub || p.label)}">
+        <b>${esc(p.label)}</b>${p.sub ? `<small>${esc(p.sub)}</small>` : ''}</div>`).join('') + `</div></details>`;
+  }
+  $('#tree').innerHTML = h;
+}
+
+function studioKbdHTML(U) {
+  const H = S.sim.held, hold = holdableIds();
+  let h = `<div class="kbd" style="width:${KB_W * U}px;height:${KB_H * U}px">`;
+  for (const k of LAYOUT) {
+    let cls = 'key', out = '', bd = '';
+    const isHeld = H.has(k.id);
+    const it = isHeld ? null : resolvePress(k.id);
+    if (isHeld) { cls += ' held'; out = '押下中'; }
+    else if (it) { cls += ' ' + it.kind; out = it.out; if (it.locked) { cls += ' lockedk'; bd = '🔒'; } if (it.auto) cls += ' autok';
+      // レイヤーを押しているのに、そのレイヤー外（ベース等）の定義が効いているキーは薄く
+      if (H.size && !it.prefixRaw && !it.mods.length && !gksIds(it.ctx).length) cls += ' fallback'; }
+    else cls += ' empty';
+    if (hold.has(k.id) && !isHeld) { cls += ' trigger'; if (!STD_MODS.includes(k.id)) bd = '▸' + bd; }
+    if (S.sim.flash === k.id) cls += ' flash';
+    if (S.selKey === k.id) cls += ' selk';
+    const tip = it ? `${capLabel(k.id)} → ${it.out}\n${meaning(it)}${it.locked ? '\n🔒 手書きの定義（編集すると取り込みます）' : ''}` :
+      (hold.has(k.id) ? `${capLabel(k.id)}：クリックで押しっぱなし` : `${capLabel(k.id)}（割り当てなし）`);
+    h += `<div class="${cls}" data-sk="${esc(k.id)}" data-drop="key:${esc(k.id)}" draggable="${S.locked ? 'false' : 'true'}" title="${esc(tip)}"
+      style="left:${k.x * U}px;top:${k.y * U}px;width:${k.w * U - 4}px;height:${k.h * U - 4}px">` +
+      `<span class="cap">${esc(capLabel(k.id))}</span><span class="out" style="font-size:${fontFor(out, U)}px">${esc(out)}</span><span class="bd">${bd}</span></div>`;
+  }
+  return h + `</div>`;
+}
+function fontFor(out, U) {
+  const len = [...out].length;
+  return len <= 2 ? Math.round(U * .36) : len <= 4 ? Math.round(U * .27) : len <= 7 ? Math.round(U * .21) : Math.round(U * .18);
+}
+
+function renderStudio() {
+  renderPalette();
+  const H = S.sim.held;
+  const locked = S.items.filter(it => it.locked);
+  let h = '';
+  // アプリ（条件）
+  h += `<div class="bar"><span class="lbl">アプリ</span>
+    <span class="chip ${!S.appCtx ? 'on' : ''}" data-app="">🌐 すべて</span>` +
+    S.ctxs.filter(c => c).map(c => gksIds(c).length
+      ? `<span class="chip auto ${ctxActive(c) ? 'on' : ''}" title="${esc(c)}（キーを押すと自動で有効）">${esc(ctxLabel(c))}</span>`
+      : `<span class="chip ${S.appCtx === c ? 'on' : ''}" data-app="${esc(c)}" title="${esc(c)}">🎯 ${esc(ctxLabel(c))}</span>`).join('') +
+    `<span class="chip ghost" id="addApp" title="特定のアプリだけで動く割り当てを作る">＋ アプリ別</span>
+    <span style="flex:1"></span>
+    <label class="lockt ${S.locked ? 'on' : ''}" title="オンにすると、ためすだけになり配列は変わりません"><input type="checkbox" id="lockT" ${S.locked ? 'checked' : ''}> 🔒 編集ロック</label></div>`;
+  // 押しているキー（レイヤー）
+  h += `<div class="bar layers"><span class="lbl">押している<br>キー</span>
+    <span class="lchip ${!H.size ? 'on' : ''}" data-hold="" data-drop="layer:base">⌨ なし<small>ベース</small></span>` +
+    prefixChips().map(p => `<span class="lchip ${H.has(p.id) ? 'on' : ''}" data-hold="${esc(p.id)}" data-drop="layer:pre:${esc(p.id)}">${esc(capLabel(p.id))}<small>${p.n}件</small></span>`).join('') +
+    `<span class="sep"></span>` +
+    ['ctrl', 'shift', 'alt', 'win'].map(m => { const on = H.has('l' + m) || H.has('r' + m);
+      return `<span class="lchip mod ${on ? 'on' : ''}" data-hold="l${m}" data-drop="layer:mod:${MODNAME[m]}">${MODNAME[m]}</span>`; }).join('') +
+    `<span class="lchip newl" data-drop="newlayer" title="キーをここへドラッグすると、そのキーを押しながら使うレイヤーを作れます">＋ レイヤーを作る<small>キーをここへ</small></span></div>`;
+  if (locked.length) h += `<div class="banner">🔒 手書きの定義が <b>${locked.length}</b> 件あります。そのままでも表示・ためす・ドラッグ編集できます（触った定義から自動で取り込みます）。
+    <button class="btn" id="importAll">まとめて取り込む</button></div>`;
+  h += `<div class="state">${esc(stateLabel())} <span class="dim">の配列</span></div>`;
+  h += `<div id="skb"></div>`;
+  h += `<div class="under"><div class="trash" data-drop="trash">🗑 ここへドラッグで解除</div>
+    <div class="dim hint">クリック: ためす・選ぶ ／ ドラッグ: 移動（相手があれば入れ替え） ／ <b>Ctrl</b>+ドラッグ: コピー ／ レイヤーのボタンへドラッグ: そのレイヤーへ移す</div></div>`;
+  h += `<div class="loglist"><span class="lbl">ためしたログ</span>${S.sim.log.length ? S.sim.log.slice(0, 12).map(e =>
+    `<span class="logc">${e.keys.map((t, i, a) => kk(t, i < a.length - 1 && e.heldN > 0)).join('+')} → ${e.it ? `<b>${esc(e.it.out)}</b>` : '<span class="dim">そのまま</span>'}</span>`).join('') :
+    '<span class="dim">キーを押す（クリック／実際のキーボード）と、何が起きたかがここに出ます。</span>'}
+    <label class="realk"><input type="checkbox" id="simReal" ${S.sim.real ? 'checked' : ''}> 実キーボードで操作</label></div>`;
+  $('#main').innerHTML = h;
+  const w = $('#skb'); w.innerHTML = studioKbdHTML(unitFor(w));
+  S.sim.flash = null;
+  renderInspector();
+}
+
+/* ---------- 右欄：選んだキーの詳細・編集 ---------- */
+const TYPE_OPTS = [['remap', '別のキーとして動かす（リマップ）'], ['send', 'キー操作を送る（Send）'], ['text', '文字を入力（SendText）'], ['run', 'アプリ・URLを開く（Run）'], ['code', 'コードを書く']];
+const TYPE_HELP = { remap: 'キー名（例: Left, Enter, BackSpace, ^t）', send: '{Left} {Enter} ^c(Ctrl) +(Shift) !(Alt) #(Win)', text: '入力する文字そのもの', run: 'notepad.exe / https://…', code: 'AutoHotkey v2 のコード（複数行OK）' };
+function renderInspector() {
+  const el = $('#detail'), id = S.selKey;
+  if (!id) {
+    const n = DOC.bindings.length, nl = S.items.filter(i => i.locked).length;
+    el.innerHTML = `<div class="ins-empty"><div class="big">👆</div>キーをクリックすると、ここで<b>いまの状態での割り当て</b>を見たり、書き換えたりできます。
+      <div class="stat2"><div><b>${n}</b>アプリ管理</div><div><b>${nl}</b>手書き</div><div><b>${S.items.length}</b>合計</div></div></div>`;
+    return;
+  }
+  const trig = triggerFor(id);
+  const isHeld = S.sim.held.has(id);
+  const cur = isHeld ? null : resolvePress(id);
+  const exact = findBinding(trig);
+  const sameAsCur = cur && sameTrig(itemTrig(cur), trig);
+  let h = `<div class="ins-head">${[...S.sim.held].map(x => kk(capLabel(x), 1)).join(' + ')}${S.sim.held.size ? ' + ' : ''}<span class="dk">${esc(capLabel(id))}</span>
+    ${S.appCtx ? `<div class="dim" style="font-size:12px;margin-top:4px">🎯 ${esc(ctxLabel(S.appCtx))} のとき</div>` : ''}</div>`;
+  if (isHeld) {
+    h += `<div class="di">このキーは押しっぱなしにしています。<br>単押しの動作を変えるには、「押しているキー: なし」に戻してからこのキーを選んでください。</div>`;
+  } else {
+    h += `<div class="di cur"><div class="hd">いまの動作 ${cur ? (cur.locked ? '<span class="tag lock">🔒 手書き</span>' : cur.auto ? '<span class="tag auto">自動</span>' : '<span class="tag own">アプリ管理</span>') : ''}</div>`;
+    if (cur) {
+      h += `<div class="outbig">→ ${esc(cur.out)}</div><div class="dim">${esc(meaning(cur))}</div>`;
+      if (!sameAsCur) h += `<div class="note">※ この状態専用の割り当てはなく、「${esc(ctxLabel(cur.ctx))} › ${esc(cur.layerName)}」の設定が使われています。下で保存すると、この状態専用の割り当てになります。</div>`;
+      if (cur.auto) h += `<div class="note">レイヤーキーの単押しは、自動で「元のキーを入力」になっています。</div>`;
+    } else h += `<div class="dim">割り当てなし（普通に入力されます）</div>`;
+    h += `</div>`;
+    // 編集フォーム
+    const base = exact ? { act: exact.act, comment: exact.comment } : (sameAsCur ? (cur.auto ? { act: { type: 'send', value: '{' + cur.keyRaw + '}' }, comment: '' } : itemToBinding(cur)) : null);
+    const act = base ? base.act : { type: 'remap', value: '' };
+    if (S.locked) h += `<div class="note">🔒 編集ロック中です。上のチェックを外すと編集できます。</div>`;
+    else {
+      h += `<div class="di form"><div class="hd">${exact || sameAsCur ? 'この割り当てを編集' : '＋ この状態に割り当てる'}</div>
+        <select id="iType">${TYPE_OPTS.map(([v, l]) => `<option value="${v}" ${v === act.type ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        <textarea id="iVal" rows="${act.type === 'code' ? 5 : 1}" spellcheck="false" placeholder="${esc(TYPE_HELP[act.type])}">${esc(act.value)}</textarea>
+        <div id="iHelp" class="dim" style="font-size:11px">${esc(TYPE_HELP[act.type])}</div>
+        <input id="iCm" placeholder="コメント（任意）" value="${esc(base ? base.comment || '' : '')}">
+        ${cur && cur.locked && sameAsCur ? '<div class="note">保存すると、この手書き定義をアプリ管理に取り込んで置き換えます。</div>' : ''}
+        <div class="row"><button class="btn primary" id="iSave">保存</button>
+        ${cur && sameAsCur && !cur.auto ? '<button class="btn" id="iDel">解除</button>' : ''}</div></div>`;
+    }
+    if (cur) h += `<details class="codebox"><summary>コードを見る <span class="dim mono">${esc(DOC.name)}:${cur.line}</span></summary><pre class="mono">${esc(cur.code)}</pre></details>`;
+  }
+  // レイヤーキー
+  const lay = S.items.filter(it => it.prefixIds.includes(id));
+  if (lay.length) h += `<div class="di lay">▸ このキーを押しながら使える割り当てが <b>${lay.length}</b> 件 <button class="btn" data-hold="${esc(id)}">押しっぱなしにする</button></div>`;
+  // ほかの状態
+  const others = S.items.filter(it => it.keyIds.includes(id) && it !== cur);
+  if (others.length) h += `<div class="tsec">ほかの状態での割り当て</div>` + others.map(it =>
+    `<div class="orow" data-goto="${it.line}">${comboHTML(it)} → <b>${esc(it.out)}</b>${it.locked ? ' 🔒' : ''}</div>`).join('');
+  el.innerHTML = h;
+}
+
+/* ---------- 操作 ---------- */
+function simClick(id) {
+  const prefixHeld = [...S.sim.held].filter(x => !STD_MODS.includes(x));
+  const comboWithHeld = prefixHeld.length && S.items.some(it => it.keyIds.includes(id) && it.prefixIds.some(p => S.sim.held.has(p)));
+  S.selKey = id;
+  if (holdableIds().has(id) && !comboWithHeld) simHold(id, !S.sim.held.has(id));
+  else simPress(id);
+}
+function simPress(id) {
+  S.sim.used = true;
+  const it = resolvePress(id);
+  S.sim.log.unshift({ keys: [...heldLabel(), capLabel(id)], heldN: S.sim.held.size, it });
+  S.sim.log.length = Math.min(S.sim.log.length, 30);
+  S.sim.flash = id;
+  renderAll();
+}
+function simHold(id, on) {
+  if (on) {
+    // レイヤーキーは1つだけ押しっぱなしにする
+    if (!STD_MODS.includes(id)) for (const x of [...S.sim.held]) if (!STD_MODS.includes(x)) S.sim.held.delete(x);
+    S.sim.held.add(id); S.sim.used = false;
+  } else {
+    S.sim.held.delete(id);
+    if (!S.sim.used) {
+      const it = resolvePress(id, true) || resolvePress(id);
+      if (it) S.sim.log.unshift({ keys: [capLabel(id) + '（単押し）'], heldN: 0, it });
+    }
+  }
+  renderAll();
+}
+function gotoItem(it) {
+  S.sim.held = new Set(it.prefixIds.length ? [it.prefixIds[0]] : modIdsFor(it.mods));
+  gksIds(it.ctx).forEach(i => S.sim.held.add(i));
+  S.appCtx = gksIds(it.ctx).length ? '' : (it.ctx || '');
+  S.selKey = it.keyIds[0] || null; S.view = 'studio';
+  renderAll();
+}
+
+/* ドラッグ＆ドロップ */
+let DRAG = null;
+document.addEventListener('dragstart', e => {
+  const p = e.target.closest && e.target.closest('[data-pal]');
+  const k = e.target.closest && e.target.closest('.key[data-sk]');
+  if (p) DRAG = { from: 'pal', i: +p.dataset.pal };
+  else if (k && S.view === 'studio') {
+    const id = k.dataset.sk, it = S.sim.held.has(id) ? null : resolvePress(id);
+    DRAG = { from: 'key', id, line: it ? it.line : null };
+  } else return;
+  e.dataTransfer.setData('application/x-als', '1');
+  e.dataTransfer.effectAllowed = 'copyMove';
+  document.body.classList.add('dragging');
+});
+document.addEventListener('dragover', e => {
+  if (!DRAG) return;
+  const t = e.target.closest && e.target.closest('[data-drop]');
+  $$('.over').forEach(x => x !== t && x.classList.remove('over'));
+  if (!t) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = (e.ctrlKey || e.altKey || e.metaKey) ? 'copy' : 'move';
+  t.classList.add('over');
+});
+document.addEventListener('dragend', () => { DRAG = null; document.body.classList.remove('dragging'); $$('.over').forEach(x => x.classList.remove('over')); });
+document.addEventListener('drop', e => {
+  if (!DRAG) return;
+  const t = e.target.closest && e.target.closest('[data-drop]');
+  const d = DRAG; DRAG = null; document.body.classList.remove('dragging'); $$('.over').forEach(x => x.classList.remove('over'));
+  if (!t) return;
+  e.preventDefault(); e.stopPropagation();
+  handleDrop(d, t.dataset.drop, e.ctrlKey || e.altKey || e.metaKey);
+});
+function handleDrop(d, target, copy) {
+  if (S.locked) return toast('編集ロック中です（上の 🔒 編集ロック を外してください）', 'warn');
+  const [kind, a, b] = target.split(':');
+  if (d.from === 'pal') {
+    const p = PAL[d.i];
+    if (kind === 'key') return dropPal(p, a);
+    if (kind === 'newlayer' || kind === 'layer') return toast('部品はキーボードのキーへドラッグしてください', 'warn');
+    return;
+  }
+  const it = d.line ? S.items.find(x => x.line === d.line) : null;
+  if (kind === 'newlayer') {
+    const raw = rawNameFor(d.id);
+    addLayerKey(raw); S.sim.held = new Set([d.id]); S.selKey = null; renderAll();
+    return;
+  }
+  if (!it) return toast('割り当てのないキーです（パレットから部品をドラッグしてください）', 'warn');
+  if (kind === 'trash') return removeItem(it);
+  if (kind === 'key') {
+    if (S.sim.held.has(a)) return toast('押しっぱなしのキー自身には置けません', 'warn');
+    const trig = triggerFor(a);
+    if (moveItem(it, trig, copy)) S.selKey = a;
+    return renderAll();
+  }
+  if (kind === 'layer') {
+    const trig = { ctx: it.ctx || '', prefix: '', mods: [], key: it.keyRaw, up: !!it.up };
+    if (a === 'pre') { if (resolveKey(it.keyRaw).includes(b)) return toast('そのキー自身のレイヤーには移せません', 'warn'); trig.prefix = rawNameFor(b); }
+    if (a === 'mod') trig.mods = [b];
+    moveItem(it, trig, copy);
+  }
+}
+function dropPal(p, id) {
+  if (p.special === 'layer') {
+    addLayerKey(rawNameFor(id)); S.sim.held = new Set([id]); S.selKey = null; renderAll();
+    return;
+  }
+  if (S.sim.held.has(id)) return toast('押しっぱなしのキー自身には割り当てられません。単押しの動作は「なし」に戻してから割り当ててください', 'warn');
+  const act = p.act ? { ...p.act } : askAct(p.ask);
+  if (!act) return;
+  S.selKey = id;
+  assign(triggerFor(id), act);
+}
+
+/* クリック */
+document.addEventListener('click', e => {
+  if (S.view !== 'studio') return;
+  const t = e.target;
+  const k = t.closest('#skb .key[data-sk]'); if (k) return simClick(k.dataset.sk);
+  const hold = t.closest('[data-hold]');
+  if (hold) {
+    const id = hold.dataset.hold;
+    if (!id) S.sim.held.clear();
+    else if (STD_MODS.includes(id)) { const m = id.slice(1); const on = S.sim.held.has('l' + m) || S.sim.held.has('r' + m);
+      for (const x of [...S.sim.held]) if (!STD_MODS.includes(x)) S.sim.held.delete(x);
+      S.sim.held.delete('l' + m); S.sim.held.delete('r' + m); if (!on) S.sim.held.add(id); }
+    else if (S.sim.held.has(id) && S.sim.held.size === 1) S.sim.held.clear();
+    else S.sim.held = new Set([id]);
+    S.sim.used = false; return renderAll();
+  }
+  const pal = t.closest('[data-pal]');
+  if (pal) { if (!S.selKey) return toast('先にキーボードのキーをクリックして選んでください', 'warn'); if (S.locked) return toast('編集ロック中です', 'warn'); return dropPal(PAL[+pal.dataset.pal], S.selKey); }
+  const app = t.closest('[data-app]'); if (app) { S.appCtx = app.dataset.app; return renderAll(); }
+  if (t.closest('#addApp')) {
+    const exe = prompt('どのアプリで使う割り当てですか？ 実行ファイル名を入力してください（例: chrome.exe, Code.exe）', '');
+    if (!exe) return;
+    const ctx = `WinActive("ahk_exe ${exe.trim()}")`;
+    mutate(() => { if (!DOC.ctxs.includes(ctx)) DOC.ctxs.push(ctx); });
+    S.appCtx = ctx; return renderAll();
+  }
+  if (t.closest('#importAll')) {
+    if (!confirm('手書きの定義をまとめてアプリ管理に取り込みます。\n・関数や複雑な処理（積み重ね記法など）はそのまま手書き部分に残ります\n・取り込んだ定義は「管理区画」に整理して書き出されます\n・あとから ↶ 元に戻す で戻せます\n\n取り込みますか？')) return;
+    const n = importAllHand(); return toast(n ? `${n} 件を取り込みました` : '取り込める定義がありませんでした');
+  }
+  if (t.id === 'iSave') {
+    const act = { type: $('#iType').value, value: $('#iVal').value };
+    if (!act.value.trim()) return toast('内容が空です', 'warn');
+    return assign(triggerFor(S.selKey), act, $('#iCm').value.trim());
+  }
+  if (t.id === 'iDel') { const it = resolvePress(S.selKey); if (it) removeItem(it); return; }
+  const go = t.closest('[data-goto]'); if (go) { const it = S.items.find(x => x.line === +go.dataset.goto); if (it) gotoItem(it); }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'lockT') { S.locked = t.checked; renderAll(); }
+  if (t.id === 'simReal') { S.sim.real = t.checked; t.blur(); }
+  if (t.id === 'iType') { $('#iVal').rows = t.value === 'code' ? 5 : 1; $('#iVal').placeholder = TYPE_HELP[t.value]; $('#iHelp').textContent = TYPE_HELP[t.value]; }
+});
+document.addEventListener('input', e => { if (e.target.id === 'palQ') { S.paletteQ = e.target.value; renderPalette(); const q = $('#palQ'); q.focus(); q.setSelectionRange(q.value.length, q.value.length); } });
+document.addEventListener('toggle', e => { const c = e.target.dataset && e.target.dataset.cat; if (c) { S.palClosed = S.palClosed || {}; S.palClosed[c] = !e.target.open; } }, true);
+
+/* 実キーボード */
+function simKeyActive(e) {
+  return S.view === 'studio' && S.sim.real && !document.querySelector('dialog[open]') &&
+    !(e.target.closest && e.target.closest('input:not([type=checkbox]),textarea,select'));
+}
+window.addEventListener('keydown', e => {
+  if (!simKeyActive(e)) return;
+  const id = codeToId(e.code); if (!id) return;
+  e.preventDefault(); if (e.repeat) return;
+  S.selKey = id;
+  const prefixHeld = [...S.sim.held].some(x => !STD_MODS.includes(x));
+  const comboWithHeld = prefixHeld && S.items.some(it => it.keyIds.includes(id) && it.prefixIds.some(p => S.sim.held.has(p)));
+  if (holdableIds().has(id) && !comboWithHeld) { if (!S.sim.held.has(id)) simHold(id, true); }
+  else simPress(id);
+});
+window.addEventListener('keyup', e => {
+  if (!simKeyActive(e)) return;
+  const id = codeToId(e.code); if (!id) return;
+  e.preventDefault();
+  if (S.sim.held.has(id)) simHold(id, false);
+});
+
+</script>
+<script>
+/* ---- js/app.js ---- */
+"use strict";
+/* =========================================================
+   起動・画面切り替え・ファイル操作・書き出し
+   ========================================================= */
+function renderAll() {
+  document.body.dataset.view = S.view;
+  $$('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === S.view));
+  $$('#lay button').forEach(b => b.classList.toggle('on', b.dataset.l === S.layout));
+  $('#docName').textContent = DOC.name;
+  $('#bUndo').disabled = !UNDO.length; $('#bRedo').disabled = !REDO.length;
+  const changed = compose(DOC).text !== DOC.orig;
+  $('#bExport').classList.toggle('primary', changed);
+  $('#bExport').innerHTML = '💾 書き出し' + (changed ? ' <span class="badge">●</span>' : '');
+  if (S.view === 'studio') renderStudio();
+  else { renderTree(); renderDetailMain(); renderDetailPanel(); }
+}
+
+/* ---------- ファイル ---------- */
+async function readText(file) {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  if (buf[0] === 0xFF && buf[1] === 0xFE) return new TextDecoder('utf-16le').decode(buf);
+  if (buf[0] === 0xFE && buf[1] === 0xFF) return new TextDecoder('utf-16be').decode(buf);
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buf); }
+  catch (_) { try { return new TextDecoder('shift_jis').decode(buf); } catch (__) { return new TextDecoder().decode(buf); } }
+}
+function hasUnsaved() { return DOC && compose(DOC).text !== DOC.orig && (DOC.orig || DOC.bindings.length); }
+function openDoc(doc) {
+  DOC = doc; UNDO.length = 0; REDO.length = 0;
+  S.sim.held.clear(); S.sim.log = []; S.selKey = null; S.appCtx = ''; S.sel = 'all';
+  derive();
+  if (!isV2Text(DOC.orig || '#Requires AutoHotkey v2.0') && DOC.orig)
+    toast('このファイルは AutoHotkey v1 の書き方のようです。表示・ためすはできますが、編集は v2 の書き方で書き出されます', 'warn');
+  persist(); renderAll();
+}
+async function openFile(f) {
+  if (hasUnsaved() && !confirm('いまの配列には書き出していない変更があります。破棄して開きますか？')) return;
+  openDoc(docFromText(f.name, await readText(f)));
+  toast(`${f.name} を開きました`);
+}
+
+/* ---------- 書き出し ---------- */
+function openExport() {
+  const text = compose(DOC).text;
+  const changed = text !== DOC.orig;
+  $('#xdlg').innerHTML = `<h3 style="margin-top:0">💾 書き出し</h3>
+    <div class="xrow"><label>ファイル名</label><input id="xName" value="${esc(DOC.name)}"></div>
+    <p class="dim" style="font-size:12px">AutoHotkey v2 の .ahk として保存します（UTF-8 BOM付き・改行コードは元のまま）。
+      元のファイルを置き換えてから、AutoHotkey で再読み込み（Reload）してください。<br>
+      手書き部分はそのまま残り、<b>管理区画</b>（<code>; ==== BEGIN 配列アプリ管理区画</code> 〜 <code>END</code>）だけがアプリで作り直されます。</p>
+    <div class="xf"><div class="xh"><b>元のファイルとの違い</b><span class="dim">${changed ? '緑=追加 / 赤=削除' : '変更なし'}</span></div>
+      <div class="diff mono">${DOC.orig ? diffHTML(DOC.orig, text) : text.split(/\r?\n/).map((l, i) => `<div class="dl add"><span class="ln">${i + 1}</span>+ ${esc(l)}</div>`).join('')}</div></div>
+    <div class="row" style="justify-content:flex-end;margin-top:12px">
+      ${DOC.orig && changed ? '<button class="btn" id="xRevert">↶ 開いたときの状態に戻す</button>' : ''}
+      <button class="btn" id="xCopy">📋 全文をコピー</button>
+      <button class="btn primary" id="xDl">⬇ ダウンロード</button>
+      <button class="btn" id="xClose">閉じる</button></div>`;
+  if (!$('#xdlg').open) $('#xdlg').showModal();
+}
+function download(name, text) {
+  const blob = new Blob(['﻿' + text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+/* ---------- イベント ---------- */
+document.addEventListener('click', async e => {
+  const t = e.target;
+  const tab = t.closest('#tabs button'); if (tab) { S.view = tab.dataset.v; return renderAll(); }
+  const lay = t.closest('#lay button'); if (lay) { S.layout = lay.dataset.l; derive(); persist(); return renderAll(); }
+  if (t.closest('#bOpen')) return $('#file').click();
+  if (t.closest('#bNew')) {
+    if (hasUnsaved() && !confirm('書き出していない変更があります。破棄して新しく作りますか？')) return;
+    return openDoc(newDoc());
+  }
+  if (t.closest('#bSample')) {
+    if (hasUnsaved() && !confirm('書き出していない変更があります。破棄してサンプルを開きますか？')) return;
+    return openDoc(docFromText('サンプル配列.ahk', SAMPLE));
+  }
+  if (t.closest('#bUndo')) return undo();
+  if (t.closest('#bRedo')) return redo();
+  if (t.closest('#bExport')) return openExport();
+  if (t.closest('#docName')) {
+    const n = prompt('ファイル名', DOC.name); if (n) { DOC.name = /\.ahk$/i.test(n) ? n : n + '.ahk'; persist(); renderAll(); } return;
+  }
+  // 書き出しダイアログ
+  if (t.id === 'xDl') { const n = $('#xName').value.trim() || DOC.name; DOC.name = n; persist(); download(n, compose(DOC).text); return toast('ダウンロードしました'); }
+  if (t.id === 'xCopy') { await navigator.clipboard.writeText(compose(DOC).text).catch(() => {}); return toast('コピーしました'); }
+  if (t.id === 'xClose') return $('#xdlg').close();
+  if (t.id === 'xRevert') { if (confirm('開いたときの状態に戻しますか？（↶ で取り消せます）')) { mutate(() => { const d = docFromText(DOC.name, DOC.orig); DOC.hand = d.hand; DOC.bindings = d.bindings; DOC.nextId = d.nextId; DOC.layerKeys = []; }); openExport(); } return; }
+  if (S.view !== 'detail') return;
+  // ---- くわしく画面 ----
+  const tog = t.closest('[data-tog]'); if (tog) { const ci = tog.dataset.tog; S.collapsed[ci] = !S.collapsed[ci]; return renderTree(); }
+  const go = t.closest('[data-goto]'); if (go) { const it = S.items.find(x => x.line === +go.dataset.goto); if (it) gotoItem(it); return; }
+  const dl = t.closest('[data-delline]'); if (dl) { const it = S.items.find(x => x.line === +dl.dataset.delline); if (it && confirm('この定義を削除しますか？\n\n' + it.code)) removeItem(it); return; }
+  const k = t.closest('.key[data-k]'); if (k && !k.closest('.mini')) { S.selKey = k.dataset.k; renderDetailMain(); renderDetailPanel(); return; }
+  const off = t.closest('[data-off]'); if (off) { const it = S.items[+off.dataset.off]; it._offId = it.keyRaw; S.selKey = it.keyRaw; return renderDetailPanel(); }
+  const row = t.closest('tr[data-row]'); if (row) { S.sel = 'L:' + row.dataset.row; S.selKey = row.dataset.key || null; S.query = ''; $('#q').value = ''; return renderAll(); }
+  const s = t.closest('[data-sel]'); if (s) { S.sel = s.dataset.sel; if (S.query) { S.query = ''; $('#q').value = ''; } renderAll(); $('#main').scrollTop = 0; }
+});
+document.addEventListener('dblclick', e => {
+  if (S.view !== 'detail') return;
+  const k = e.target.closest('.key[data-k]'); if (!k || k.closest('.mini')) return;
+  const cur = S.sel.startsWith('L:') ? S.layers.get(S.sel.slice(2)) : null;
+  const t = triggersOfCtx(cur ? cur.ctx : '')[k.dataset.k];
+  if (t && t.length) { S.sel = 'L:' + t[0].key; renderAll(); }
+});
+document.addEventListener('keydown', e => {
+  if (S.view === 'studio' && S.sim.real) return;   // 実キーボード操作中はショートカットを使わない
+  if (e.target.closest && e.target.closest('input,textarea,select')) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+});
+
+/* ファイルのドラッグ＆ドロップ（画面のどこでも） */
+let fileDrag = 0;
+const isFileDrag = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+window.addEventListener('dragenter', e => { if (!isFileDrag(e)) return; e.preventDefault(); fileDrag++; $('#drop').classList.add('on'); });
+window.addEventListener('dragleave', e => { if (!isFileDrag(e)) return; fileDrag--; if (fileDrag <= 0) { fileDrag = 0; $('#drop').classList.remove('on'); } });
+window.addEventListener('dragover', e => { if (isFileDrag(e)) e.preventDefault(); });
+window.addEventListener('drop', e => { if (!isFileDrag(e)) return; e.preventDefault(); fileDrag = 0; $('#drop').classList.remove('on'); const f = e.dataTransfer.files[0]; if (f) openFile(f); });
+
+let rT; window.addEventListener('resize', () => { clearTimeout(rT); rT = setTimeout(renderAll, 120); });
+
+/* 起動 */
+function boot() {
+  $('#file').addEventListener('change', e => { const f = e.target.files[0]; e.target.value = ''; if (f) openFile(f); });
+  $('#q').addEventListener('input', e => { S.query = e.target.value.trim(); if (S.view !== 'detail') S.view = 'detail'; renderAll(); });
+  loadPersisted();
+  if (!DOC) DOC = docFromText('サンプル配列.ahk', SAMPLE);
+  derive(); renderAll();
+}
+boot();
+
+</script>
+</body>
+</html>

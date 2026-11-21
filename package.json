@@ -1,0 +1,10 @@
+{
+  "name": "ahk-layout-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AutoHotkey の自作キー配列を、見て・ためして・ドラッグ＆ドロップで組めるブラウザアプリ",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node tools/build.mjs && node tests/e2e.cjs"
+  }
+}
