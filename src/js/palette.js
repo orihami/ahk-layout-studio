@@ -72,8 +72,8 @@ const ASK_TEXT = {
   run: '開くアプリ・ファイル・URL（例: notepad.exe / https://example.com）',
   code: 'AutoHotkey v2 のコード（1行。複数行は右の欄で編集できます）',
 };
-function askAct(kind) {
-  const v = prompt(ASK_TEXT[kind], '');
+async function askAct(kind) {
+  const v = await uiPrompt(ASK_TEXT[kind], '');
   if (v == null || v === '') return null;
   return { type: kind, value: v };
 }

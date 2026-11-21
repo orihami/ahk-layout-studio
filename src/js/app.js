@@ -33,7 +33,7 @@ function openDoc(doc) {
   persist(); renderAll();
 }
 async function openFile(f) {
-  if (hasUnsaved() && !confirm('いまの配列には書き出していない変更があります。破棄して開きますか？')) return;
+  if (hasUnsaved() && !await uiConfirm('いまの配列には書き出していない変更があります。破棄して開きますか？', '破棄して開く', true)) return;
   openDoc(docFromText(f.name, await readText(f)));
   toast(`${f.name} を開きました`);
 }
@@ -56,10 +56,20 @@ function openExport() {
       <button class="btn" id="xClose">閉じる</button></div>`;
   if (!$('#xdlg').open) $('#xdlg').showModal();
 }
-function download(name, text) {
-  const blob = new Blob(['﻿' + text], { type: 'text/plain;charset=utf-8' });
+/* claude.ai のページでは downloads 機能（.ahk は不可なので .ahk.txt）、普通のブラウザでは直接ダウンロード */
+let DL = null;
+const inClaudePage = () => !!(window.claude && typeof window.claude.use === 'function');
+setTimeout(() => { if (inClaudePage()) window.claude.use('downloads').then(d => { DL = d; }).catch(() => {}); }, 0);
+async function download(name, text) {
+  const blob = new Blob(['\uFEFF' + text], { type: 'text/plain;charset=utf-8' });
+  if (inClaudePage()) {
+    if (!DL) { toast('このページではダウンロードできません。「📋 全文をコピー」を使ってください', 'warn'); return false; }
+    try { await DL.save({ filename: name + '.txt', data: blob }); toast(`${name}.txt を保存しました。末尾の .txt を消して使ってください`); return true; }
+    catch (e) { if (!e || e.code !== 'declined') toast('保存できませんでした。「📋 全文をコピー」を使ってください', 'warn'); return false; }
+  }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast('ダウンロードしました'); return true;
 }
 
 /* ---------- イベント ---------- */
@@ -69,29 +79,29 @@ document.addEventListener('click', async e => {
   const lay = t.closest('#lay button'); if (lay) { S.layout = lay.dataset.l; derive(); persist(); return renderAll(); }
   if (t.closest('#bOpen')) return $('#file').click();
   if (t.closest('#bNew')) {
-    if (hasUnsaved() && !confirm('書き出していない変更があります。破棄して新しく作りますか？')) return;
+    if (hasUnsaved() && !await uiConfirm('書き出していない変更があります。破棄して新しく作りますか？', '破棄して新規', true)) return;
     return openDoc(newDoc());
   }
   if (t.closest('#bSample')) {
-    if (hasUnsaved() && !confirm('書き出していない変更があります。破棄してサンプルを開きますか？')) return;
+    if (hasUnsaved() && !await uiConfirm('書き出していない変更があります。破棄してサンプルを開きますか？', '破棄して開く', true)) return;
     return openDoc(docFromText('サンプル配列.ahk', SAMPLE));
   }
   if (t.closest('#bUndo')) return undo();
   if (t.closest('#bRedo')) return redo();
   if (t.closest('#bExport')) return openExport();
   if (t.closest('#docName')) {
-    const n = prompt('ファイル名', DOC.name); if (n) { DOC.name = /\.ahk$/i.test(n) ? n : n + '.ahk'; persist(); renderAll(); } return;
+    const n = await uiPrompt('ファイル名', DOC.name); if (n) { DOC.name = /\.ahk$/i.test(n) ? n : n + '.ahk'; persist(); renderAll(); } return;
   }
   // 書き出しダイアログ
-  if (t.id === 'xDl') { const n = $('#xName').value.trim() || DOC.name; DOC.name = n; persist(); download(n, compose(DOC).text); return toast('ダウンロードしました'); }
-  if (t.id === 'xCopy') { await navigator.clipboard.writeText(compose(DOC).text).catch(() => {}); return toast('コピーしました'); }
+  if (t.id === 'xDl') { const n = $('#xName').value.trim() || DOC.name; DOC.name = n; persist(); return download(n, compose(DOC).text); }
+  if (t.id === 'xCopy') { try { await navigator.clipboard.writeText(compose(DOC).text); toast('コピーしました。元の .ahk に貼り付けて保存してください'); } catch (_) { toast('コピーできませんでした', 'warn'); } return; }
   if (t.id === 'xClose') return $('#xdlg').close();
-  if (t.id === 'xRevert') { if (confirm('開いたときの状態に戻しますか？（↶ で取り消せます）')) { mutate(() => { const d = docFromText(DOC.name, DOC.orig); DOC.hand = d.hand; DOC.bindings = d.bindings; DOC.nextId = d.nextId; DOC.layerKeys = []; }); openExport(); } return; }
+  if (t.id === 'xRevert') { if (await uiConfirm('開いたときの状態に戻しますか？（↶ で取り消せます）', '戻す')) { mutate(() => { const d = docFromText(DOC.name, DOC.orig); DOC.hand = d.hand; DOC.bindings = d.bindings; DOC.nextId = d.nextId; DOC.layerKeys = []; }); openExport(); } return; }
   if (S.view !== 'detail') return;
   // ---- くわしく画面 ----
   const tog = t.closest('[data-tog]'); if (tog) { const ci = tog.dataset.tog; S.collapsed[ci] = !S.collapsed[ci]; return renderTree(); }
   const go = t.closest('[data-goto]'); if (go) { const it = S.items.find(x => x.line === +go.dataset.goto); if (it) gotoItem(it); return; }
-  const dl = t.closest('[data-delline]'); if (dl) { const it = S.items.find(x => x.line === +dl.dataset.delline); if (it && confirm('この定義を削除しますか？\n\n' + it.code)) removeItem(it); return; }
+  const dl = t.closest('[data-delline]'); if (dl) { const it = S.items.find(x => x.line === +dl.dataset.delline); if (it && await uiConfirm('この定義を削除しますか？\n\n' + it.code, '削除', true)) removeItem(it); return; }
   const k = t.closest('.key[data-k]'); if (k && !k.closest('.mini')) { S.selKey = k.dataset.k; renderDetailMain(); renderDetailPanel(); return; }
   const off = t.closest('[data-off]'); if (off) { const it = S.items[+off.dataset.off]; it._offId = it.keyRaw; S.selKey = it.keyRaw; return renderDetailPanel(); }
   const row = t.closest('tr[data-row]'); if (row) { S.sel = 'L:' + row.dataset.row; S.selKey = row.dataset.key || null; S.query = ''; $('#q').value = ''; return renderAll(); }

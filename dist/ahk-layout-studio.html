@@ -232,6 +232,14 @@ body.dragging .key.empty{opacity:.8}
 #toast.warn{background:#b45309}
 .key.fallback{opacity:.45;filter:saturate(.4)}
 .key .out{word-break:normal;overflow-wrap:anywhere}
+#udlg{width:min(460px,92vw)}
+#udlg .umsg{line-height:1.7;font-size:14px;white-space:normal}
+#udlg input{width:100%;margin-top:12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.btn.danger{background:#b91c1c;border-color:#b91c1c}
+#udlg{width:min(460px,92vw)}
+#udlg .umsg{line-height:1.7;font-size:14px}
+#udlg input{width:100%;margin-top:12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.btn.danger{background:#b91c1c;border-color:#b91c1c}
 
 </style>
 </head>
@@ -258,6 +266,7 @@ body.dragging .key.empty{opacity:.8}
 </div>
 <div id="drop">ここに .ahk ファイルをドロップして開く</div>
 <dialog id="xdlg"></dialog>
+<dialog id="udlg"></dialog>
 <script>
 /* ---- js/state.js ---- */
 "use strict";
@@ -288,6 +297,26 @@ function toast(msg, kind) {
   el.textContent = msg; el.className = 'on ' + (kind || '');
   clearTimeout(el._t); el._t = setTimeout(() => el.className = '', 2800);
 }
+
+/* ---------- ページ内ダイアログ（claude.ai のページでは prompt/confirm が使えないため） ---------- */
+function uiDialog({ msg, input = null, ok = 'OK', cancel = 'キャンセル', danger = false }) {
+  return new Promise(resolve => {
+    const d = $('#udlg');
+    d.innerHTML = `<div class="umsg">${esc(msg).replace(/\n/g, '<br>')}</div>
+      ${input !== null ? `<input id="uIn" value="${esc(input)}">` : ''}
+      <div class="row" style="justify-content:flex-end;margin-top:14px">
+        ${cancel ? `<button class="btn" id="uNo">${esc(cancel)}</button>` : ''}
+        <button class="btn primary ${danger ? 'danger' : ''}" id="uOk">${esc(ok)}</button></div>`;
+    const done = v => { d.close(); resolve(v); };
+    d.onclick = e => { if (e.target.id === 'uOk') done(input !== null ? $('#uIn').value : true); if (e.target.id === 'uNo') done(input !== null ? null : false); };
+    d.onkeydown = e => { if (e.key === 'Enter' && e.target.id === 'uIn') { e.preventDefault(); done($('#uIn').value); } };
+    d.oncancel = e => { e.preventDefault(); done(input !== null ? null : false); };
+    d.showModal();
+    const i = $('#uIn'); if (i) { i.focus(); i.select(); } else $('#uOk').focus();
+  });
+}
+const uiConfirm = (msg, ok, danger) => uiDialog({ msg, ok: ok || 'OK', danger });
+const uiPrompt = (msg, def) => uiDialog({ msg, input: def || '' });
 
 </script>
 <script>
@@ -1265,8 +1294,8 @@ const ASK_TEXT = {
   run: '開くアプリ・ファイル・URL（例: notepad.exe / https://example.com）',
   code: 'AutoHotkey v2 のコード（1行。複数行は右の欄で編集できます）',
 };
-function askAct(kind) {
-  const v = prompt(ASK_TEXT[kind], '');
+async function askAct(kind) {
+  const v = await uiPrompt(ASK_TEXT[kind], '');
   if (v == null || v === '') return null;
   return { type: kind, value: v };
 }
@@ -1822,20 +1851,20 @@ function handleDrop(d, target, copy) {
     moveItem(it, trig, copy);
   }
 }
-function dropPal(p, id) {
+async function dropPal(p, id) {
   if (p.special === 'layer') {
     addLayerKey(rawNameFor(id)); S.sim.held = new Set([id]); S.selKey = null; renderAll();
     return;
   }
   if (S.sim.held.has(id)) return toast('押しっぱなしのキー自身には割り当てられません。単押しの動作は「なし」に戻してから割り当ててください', 'warn');
-  const act = p.act ? { ...p.act } : askAct(p.ask);
+  const act = p.act ? { ...p.act } : await askAct(p.ask);
   if (!act) return;
   S.selKey = id;
   assign(triggerFor(id), act);
 }
 
 /* クリック */
-document.addEventListener('click', e => {
+document.addEventListener('click', async e => {
   if (S.view !== 'studio') return;
   const t = e.target;
   const k = t.closest('#skb .key[data-sk]'); if (k) return simClick(k.dataset.sk);
@@ -1854,14 +1883,14 @@ document.addEventListener('click', e => {
   if (pal) { if (!S.selKey) return toast('先にキーボードのキーをクリックして選んでください', 'warn'); if (S.locked) return toast('編集ロック中です', 'warn'); return dropPal(PAL[+pal.dataset.pal], S.selKey); }
   const app = t.closest('[data-app]'); if (app) { S.appCtx = app.dataset.app; return renderAll(); }
   if (t.closest('#addApp')) {
-    const exe = prompt('どのアプリで使う割り当てですか？ 実行ファイル名を入力してください（例: chrome.exe, Code.exe）', '');
+    const exe = await uiPrompt('どのアプリで使う割り当てですか？\n実行ファイル名を入力してください（例: chrome.exe, Code.exe）', '');
     if (!exe) return;
     const ctx = `WinActive("ahk_exe ${exe.trim()}")`;
     mutate(() => { if (!DOC.ctxs.includes(ctx)) DOC.ctxs.push(ctx); });
     S.appCtx = ctx; return renderAll();
   }
   if (t.closest('#importAll')) {
-    if (!confirm('手書きの定義をまとめてアプリ管理に取り込みます。\n・関数や複雑な処理（積み重ね記法など）はそのまま手書き部分に残ります\n・取り込んだ定義は「管理区画」に整理して書き出されます\n・あとから ↶ 元に戻す で戻せます\n\n取り込みますか？')) return;
+    if (!await uiConfirm('手書きの定義をまとめてアプリ管理に取り込みます。\n・関数や複雑な処理（積み重ね記法など）はそのまま手書き部分に残ります\n・取り込んだ定義は「管理区画」に整理して書き出されます\n・あとから ↶ 元に戻す で戻せます', '取り込む')) return;
     const n = importAllHand(); return toast(n ? `${n} 件を取り込みました` : '取り込める定義がありませんでした');
   }
   if (t.id === 'iSave') {
@@ -1941,7 +1970,7 @@ function openDoc(doc) {
   persist(); renderAll();
 }
 async function openFile(f) {
-  if (hasUnsaved() && !confirm('いまの配列には書き出していない変更があります。破棄して開きますか？')) return;
+  if (hasUnsaved() && !await uiConfirm('いまの配列には書き出していない変更があります。破棄して開きますか？', '破棄して開く', true)) return;
   openDoc(docFromText(f.name, await readText(f)));
   toast(`${f.name} を開きました`);
 }
@@ -1964,10 +1993,20 @@ function openExport() {
       <button class="btn" id="xClose">閉じる</button></div>`;
   if (!$('#xdlg').open) $('#xdlg').showModal();
 }
-function download(name, text) {
-  const blob = new Blob(['﻿' + text], { type: 'text/plain;charset=utf-8' });
+/* claude.ai のページでは downloads 機能（.ahk は不可なので .ahk.txt）、普通のブラウザでは直接ダウンロード */
+let DL = null;
+const inClaudePage = () => !!(window.claude && typeof window.claude.use === 'function');
+setTimeout(() => { if (inClaudePage()) window.claude.use('downloads').then(d => { DL = d; }).catch(() => {}); }, 0);
+async function download(name, text) {
+  const blob = new Blob(['\uFEFF' + text], { type: 'text/plain;charset=utf-8' });
+  if (inClaudePage()) {
+    if (!DL) { toast('このページではダウンロードできません。「📋 全文をコピー」を使ってください', 'warn'); return false; }
+    try { await DL.save({ filename: name + '.txt', data: blob }); toast(`${name}.txt を保存しました。末尾の .txt を消して使ってください`); return true; }
+    catch (e) { if (!e || e.code !== 'declined') toast('保存できませんでした。「📋 全文をコピー」を使ってください', 'warn'); return false; }
+  }
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast('ダウンロードしました'); return true;
 }
 
 /* ---------- イベント ---------- */
@@ -1977,29 +2016,29 @@ document.addEventListener('click', async e => {
   const lay = t.closest('#lay button'); if (lay) { S.layout = lay.dataset.l; derive(); persist(); return renderAll(); }
   if (t.closest('#bOpen')) return $('#file').click();
   if (t.closest('#bNew')) {
-    if (hasUnsaved() && !confirm('書き出していない変更があります。破棄して新しく作りますか？')) return;
+    if (hasUnsaved() && !await uiConfirm('書き出していない変更があります。破棄して新しく作りますか？', '破棄して新規', true)) return;
     return openDoc(newDoc());
   }
   if (t.closest('#bSample')) {
-    if (hasUnsaved() && !confirm('書き出していない変更があります。破棄してサンプルを開きますか？')) return;
+    if (hasUnsaved() && !await uiConfirm('書き出していない変更があります。破棄してサンプルを開きますか？', '破棄して開く', true)) return;
     return openDoc(docFromText('サンプル配列.ahk', SAMPLE));
   }
   if (t.closest('#bUndo')) return undo();
   if (t.closest('#bRedo')) return redo();
   if (t.closest('#bExport')) return openExport();
   if (t.closest('#docName')) {
-    const n = prompt('ファイル名', DOC.name); if (n) { DOC.name = /\.ahk$/i.test(n) ? n : n + '.ahk'; persist(); renderAll(); } return;
+    const n = await uiPrompt('ファイル名', DOC.name); if (n) { DOC.name = /\.ahk$/i.test(n) ? n : n + '.ahk'; persist(); renderAll(); } return;
   }
   // 書き出しダイアログ
-  if (t.id === 'xDl') { const n = $('#xName').value.trim() || DOC.name; DOC.name = n; persist(); download(n, compose(DOC).text); return toast('ダウンロードしました'); }
-  if (t.id === 'xCopy') { await navigator.clipboard.writeText(compose(DOC).text).catch(() => {}); return toast('コピーしました'); }
+  if (t.id === 'xDl') { const n = $('#xName').value.trim() || DOC.name; DOC.name = n; persist(); return download(n, compose(DOC).text); }
+  if (t.id === 'xCopy') { try { await navigator.clipboard.writeText(compose(DOC).text); toast('コピーしました。元の .ahk に貼り付けて保存してください'); } catch (_) { toast('コピーできませんでした', 'warn'); } return; }
   if (t.id === 'xClose') return $('#xdlg').close();
-  if (t.id === 'xRevert') { if (confirm('開いたときの状態に戻しますか？（↶ で取り消せます）')) { mutate(() => { const d = docFromText(DOC.name, DOC.orig); DOC.hand = d.hand; DOC.bindings = d.bindings; DOC.nextId = d.nextId; DOC.layerKeys = []; }); openExport(); } return; }
+  if (t.id === 'xRevert') { if (await uiConfirm('開いたときの状態に戻しますか？（↶ で取り消せます）', '戻す')) { mutate(() => { const d = docFromText(DOC.name, DOC.orig); DOC.hand = d.hand; DOC.bindings = d.bindings; DOC.nextId = d.nextId; DOC.layerKeys = []; }); openExport(); } return; }
   if (S.view !== 'detail') return;
   // ---- くわしく画面 ----
   const tog = t.closest('[data-tog]'); if (tog) { const ci = tog.dataset.tog; S.collapsed[ci] = !S.collapsed[ci]; return renderTree(); }
   const go = t.closest('[data-goto]'); if (go) { const it = S.items.find(x => x.line === +go.dataset.goto); if (it) gotoItem(it); return; }
-  const dl = t.closest('[data-delline]'); if (dl) { const it = S.items.find(x => x.line === +dl.dataset.delline); if (it && confirm('この定義を削除しますか？\n\n' + it.code)) removeItem(it); return; }
+  const dl = t.closest('[data-delline]'); if (dl) { const it = S.items.find(x => x.line === +dl.dataset.delline); if (it && await uiConfirm('この定義を削除しますか？\n\n' + it.code, '削除', true)) removeItem(it); return; }
   const k = t.closest('.key[data-k]'); if (k && !k.closest('.mini')) { S.selKey = k.dataset.k; renderDetailMain(); renderDetailPanel(); return; }
   const off = t.closest('[data-off]'); if (off) { const it = S.items[+off.dataset.off]; it._offId = it.keyRaw; S.selKey = it.keyRaw; return renderDetailPanel(); }
   const row = t.closest('tr[data-row]'); if (row) { S.sel = 'L:' + row.dataset.row; S.selKey = row.dataset.key || null; S.query = ''; $('#q').value = ''; return renderAll(); }

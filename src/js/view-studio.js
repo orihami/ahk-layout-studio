@@ -264,20 +264,20 @@ function handleDrop(d, target, copy) {
     moveItem(it, trig, copy);
   }
 }
-function dropPal(p, id) {
+async function dropPal(p, id) {
   if (p.special === 'layer') {
     addLayerKey(rawNameFor(id)); S.sim.held = new Set([id]); S.selKey = null; renderAll();
     return;
   }
   if (S.sim.held.has(id)) return toast('押しっぱなしのキー自身には割り当てられません。単押しの動作は「なし」に戻してから割り当ててください', 'warn');
-  const act = p.act ? { ...p.act } : askAct(p.ask);
+  const act = p.act ? { ...p.act } : await askAct(p.ask);
   if (!act) return;
   S.selKey = id;
   assign(triggerFor(id), act);
 }
 
 /* クリック */
-document.addEventListener('click', e => {
+document.addEventListener('click', async e => {
   if (S.view !== 'studio') return;
   const t = e.target;
   const k = t.closest('#skb .key[data-sk]'); if (k) return simClick(k.dataset.sk);
@@ -296,14 +296,14 @@ document.addEventListener('click', e => {
   if (pal) { if (!S.selKey) return toast('先にキーボードのキーをクリックして選んでください', 'warn'); if (S.locked) return toast('編集ロック中です', 'warn'); return dropPal(PAL[+pal.dataset.pal], S.selKey); }
   const app = t.closest('[data-app]'); if (app) { S.appCtx = app.dataset.app; return renderAll(); }
   if (t.closest('#addApp')) {
-    const exe = prompt('どのアプリで使う割り当てですか？ 実行ファイル名を入力してください（例: chrome.exe, Code.exe）', '');
+    const exe = await uiPrompt('どのアプリで使う割り当てですか？\n実行ファイル名を入力してください（例: chrome.exe, Code.exe）', '');
     if (!exe) return;
     const ctx = `WinActive("ahk_exe ${exe.trim()}")`;
     mutate(() => { if (!DOC.ctxs.includes(ctx)) DOC.ctxs.push(ctx); });
     S.appCtx = ctx; return renderAll();
   }
   if (t.closest('#importAll')) {
-    if (!confirm('手書きの定義をまとめてアプリ管理に取り込みます。\n・関数や複雑な処理（積み重ね記法など）はそのまま手書き部分に残ります\n・取り込んだ定義は「管理区画」に整理して書き出されます\n・あとから ↶ 元に戻す で戻せます\n\n取り込みますか？')) return;
+    if (!await uiConfirm('手書きの定義をまとめてアプリ管理に取り込みます。\n・関数や複雑な処理（積み重ね記法など）はそのまま手書き部分に残ります\n・取り込んだ定義は「管理区画」に整理して書き出されます\n・あとから ↶ 元に戻す で戻せます', '取り込む')) return;
     const n = importAllHand(); return toast(n ? `${n} 件を取り込みました` : '取り込める定義がありませんでした');
   }
   if (t.id === 'iSave') {
