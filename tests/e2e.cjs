@@ -17,8 +17,13 @@ async function test(name, fn) {
   const page = await ctx.newPage();
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  let promptAnswer = '';
-  page.on('dialog', d => d.type() === 'prompt' ? d.accept(promptAnswer) : d.accept());
+  page.on('dialog', d => { errors.push('ブラウザの標準ダイアログが出た: ' + d.message()); d.dismiss(); });
+  // ページ内ダイアログに答える
+  const answer = async (text) => {
+    await page.waitForSelector('#udlg[open]');
+    if (text != null) await page.fill('#uIn', text);
+    await page.click('#uOk');
+  };
   await page.goto(APP);
   await page.evaluate(() => localStorage.clear());
   await page.reload();
@@ -63,7 +68,7 @@ async function test(name, fn) {
 
   const before = await sig();
   await test('まとめて取り込んでも動作は変わらない', async () => {
-    await page.click('#importAll');
+    await page.click('#importAll'); await answer();
     assert.deepEqual(await sig(), before);
     const t = await out();
     assert.match(t, /; ==== BEGIN 配列アプリ管理区画/);
@@ -128,8 +133,7 @@ async function test(name, fn) {
   });
   await test('アプリ別: chrome.exe で Ctrl を押して H に「前のタブ」', async () => {
     await hold('なし');
-    promptAnswer = 'chrome.exe';
-    await page.click('#addApp');
+    await page.click('#addApp'); await answer('chrome.exe');
     await page.click('.lchip.mod:has-text("Ctrl")');
     await page.dragAndDrop(pal('前のタブ'), key('h'));
     const t = await out();
@@ -171,8 +175,15 @@ async function test(name, fn) {
   await test('v1 のファイルも開ける（エラーにならない）', async () => {
     const v1 = path.join(require('os').tmpdir(), 'v1.ahk');
     fs.writeFileSync(v1, '#If GetKeyState("vk1D", "P")\r\nj::Send, {Left}\r\n#If\r\nF13::MsgBox, hi\r\n');
-    await page.setInputFiles('#file', v1);
+    await page.setInputFiles('#file', v1); await answer();
+    await page.waitForFunction(() => DOC.name === 'v1.ahk');
     assert.equal(await ev(() => S.items.length), 2);
+  });
+  await test('パレットの「文字を入力…」はページ内の入力欄で聞く', async () => {
+    await page.click('[data-app=""]'); await hold('なし');
+    await page.dragAndDrop(pal('✍ 文字を入力…'), key('f12'));
+    await answer('おつかれさま');
+    assert.match(await out(), /^F12::SendText\("おつかれさま"\)$/m);
   });
   await test('ページ上でエラーが出ていない', async () => { assert.deepEqual(errors, []); });
 

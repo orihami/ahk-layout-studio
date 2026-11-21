@@ -26,3 +26,23 @@ function toast(msg, kind) {
   el.textContent = msg; el.className = 'on ' + (kind || '');
   clearTimeout(el._t); el._t = setTimeout(() => el.className = '', 2800);
 }
+
+/* ---------- ページ内ダイアログ（claude.ai のページでは prompt/confirm が使えないため） ---------- */
+function uiDialog({ msg, input = null, ok = 'OK', cancel = 'キャンセル', danger = false }) {
+  return new Promise(resolve => {
+    const d = $('#udlg');
+    d.innerHTML = `<div class="umsg">${esc(msg).replace(/\n/g, '<br>')}</div>
+      ${input !== null ? `<input id="uIn" value="${esc(input)}">` : ''}
+      <div class="row" style="justify-content:flex-end;margin-top:14px">
+        ${cancel ? `<button class="btn" id="uNo">${esc(cancel)}</button>` : ''}
+        <button class="btn primary ${danger ? 'danger' : ''}" id="uOk">${esc(ok)}</button></div>`;
+    const done = v => { d.close(); resolve(v); };
+    d.onclick = e => { if (e.target.id === 'uOk') done(input !== null ? $('#uIn').value : true); if (e.target.id === 'uNo') done(input !== null ? null : false); };
+    d.onkeydown = e => { if (e.key === 'Enter' && e.target.id === 'uIn') { e.preventDefault(); done($('#uIn').value); } };
+    d.oncancel = e => { e.preventDefault(); done(input !== null ? null : false); };
+    d.showModal();
+    const i = $('#uIn'); if (i) { i.focus(); i.select(); } else $('#uOk').focus();
+  });
+}
+const uiConfirm = (msg, ok, danger) => uiDialog({ msg, ok: ok || 'OK', danger });
+const uiPrompt = (msg, def) => uiDialog({ msg, input: def || '' });

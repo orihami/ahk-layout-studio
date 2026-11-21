@@ -225,3 +225,11 @@ body.dragging .key.empty{opacity:.8}
 #toast.warn{background:#b45309}
 .key.fallback{opacity:.45;filter:saturate(.4)}
 .key .out{word-break:normal;overflow-wrap:anywhere}
+#udlg{width:min(460px,92vw)}
+#udlg .umsg{line-height:1.7;font-size:14px;white-space:normal}
+#udlg input{width:100%;margin-top:12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.btn.danger{background:#b91c1c;border-color:#b91c1c}
+#udlg{width:min(460px,92vw)}
+#udlg .umsg{line-height:1.7;font-size:14px}
+#udlg input{width:100%;margin-top:12px;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.btn.danger{background:#b91c1c;border-color:#b91c1c}
